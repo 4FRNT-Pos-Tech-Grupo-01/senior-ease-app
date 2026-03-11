@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Design tokens extraídos do Figma Senior Ease.
-/// Fonte única de verdade para cores, tipografia e espaçamento.
 class AppColors {
   AppColors._();
 
@@ -13,6 +11,8 @@ class AppColors {
   static const Color lightGray = Color(0xFFC6D1DD);
   static const Color grey98 = Color(0xFFF8FAFB);
   static const Color codGray = Color(0xFF121212);
+  static const Color jungleGreen = Color(0xFF2BAB6F);
+  static const Color linkWater = Color(0xFFE7EFF9);
 }
 
 class AppTheme {
@@ -44,6 +44,13 @@ class AppTheme {
         fontWeight: FontWeight.w800,
         height: 40 / 36,
         letterSpacing: -0.9,
+        color: AppColors.darkBlue,
+      ),
+      headlineMedium: GoogleFonts.nunito(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        height: 32 / 24,
+        letterSpacing: -0.5,
         color: AppColors.darkBlue,
       ),
       titleMedium: GoogleFonts.sourceSans3(
