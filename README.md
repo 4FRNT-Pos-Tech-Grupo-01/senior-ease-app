@@ -1,36 +1,23 @@
 # Senior Ease
 
-Aplicação Flutter para utilizadores sénior, com base exclusiva no design do Figma. Prioriza acessibilidade e fidelidade ao design.
-
-## Documentação de contexto
-
-Toda a implementação segue o documento em **[docs/SENIOR_EASE_CONTEXT.md](docs/SENIOR_EASE_CONTEXT.md)**:
-
-- Referência do design (Figma)
-- Regras (não inventar funcionalidades; apenas o que existe no Figma)
-- Stack: Flutter, Material 3, Riverpod, GoRouter
-- Arquitetura: `lib/core/`, `lib/features/`, `lib/widgets/`, `lib/services/`
-- Processo por etapas (STEP 1–9)
+Aplicação Flutter para utilizadores sénior, com foco em acessibilidade e fidelidade ao design.
 
 ## Estrutura do projeto
 
 ```
 lib/
-  core/
-    theme/       # Tema e tokens do Figma
-    router/      # GoRouter
-    accessibility/
-  features/
-    login/       # Ecrã de login (Figma node 8:295)
-    onboarding/
-    home/
-    reminders/
-    contacts/
-    sos/
-    settings/
+  main.dart
+  app.dart
+  app_router.dart
+  theme/
+  screens/
   widgets/
-  services/
 ```
+
+## Requisitos
+
+- Flutter (versão estável)
+- Dart 3.x
 
 ## Como executar
 
@@ -39,6 +26,19 @@ flutter pub get
 flutter run
 ```
 
+Para listar dispositivos disponíveis:
+
+```bash
+flutter devices
+```
+
 ## Design
 
-- **Figma:** [Senior Ease](https://www.figma.com/design/pvTVSqETPP9BAlnMbaAgI0/Senior-Ease?node-id=8-295)
+Design no Figma: [Senior Ease](https://www.figma.com/design/pvTVSqETPP9BAlnMbaAgI0/Senior-Ease)
+
+## Tecnologias
+
+- Flutter
+- Dart
+- Material 3
+- GoRouter
