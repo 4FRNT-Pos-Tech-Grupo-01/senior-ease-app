@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senior_ease/core/router/app_router.dart';
+import 'package:senior_ease/core/theme/app_theme.dart';
 
 void main() {
-  runApp(const SeniorEaseApp());
+  runApp(
+    const ProviderScope(
+      child: SeniorEaseApp(),
+    ),
+  );
 }
 
 class SeniorEaseApp extends StatelessWidget {
@@ -9,13 +16,11 @@ class SeniorEaseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Senior Ease',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
-      home: const Scaffold(
-        body: Center(child: Text('Senior Ease')),
-      ),
+      theme: AppTheme.light,
+      routerConfig: AppRouter.createRouter(),
     );
   }
 }
