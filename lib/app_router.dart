@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:senior_ease/screens/profile_screen.dart';
 import 'package:senior_ease/screens/screen_1.dart';
 import 'package:senior_ease/screens/screen_2.dart';
 import 'package:senior_ease/screens/screen_3.dart';
@@ -10,6 +11,7 @@ final class AppRouter {
   static const String screen1 = '/screen_1';
   static const String screen2 = '/screen_2';
   static const String screen3 = '/screen_3';
+  static const String profile = '/profile_screen';
 
   static GoRouter createRouter() {
     return GoRouter(
@@ -37,6 +39,14 @@ final class AppRouter {
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             child: const Screen3(),
+          ),
+        ),
+        GoRoute(
+          path: profile,
+          name: 'profile',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            child: const ProfileScreen(),
           ),
         ),
       ],

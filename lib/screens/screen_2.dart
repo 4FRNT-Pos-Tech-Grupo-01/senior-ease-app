@@ -82,7 +82,7 @@ class Screen2 extends StatelessWidget {
                     color: AppColors.grey98,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: () {},
+                      onTap: () => context.go(AppRouter.profile),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
