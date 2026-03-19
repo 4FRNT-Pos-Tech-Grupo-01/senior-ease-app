@@ -11,7 +11,7 @@ class SeniorEaseApp extends StatelessWidget {
       title: 'Senior Ease',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      routerConfig: AppRouter.createRouter(),
+      routerConfig: AppRouter.router,
     );
   }
 }

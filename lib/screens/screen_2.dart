@@ -15,25 +15,30 @@ class Screen2 extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.grey98,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: _buildHeader(context, textTheme),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildProgressCard(textTheme),
-                  const SizedBox(height: 16),
-                  _buildTasksCard(textTheme),
-                  const SizedBox(height: 16),
-                  _buildGuidedStepsCard(textTheme),
-                  const SizedBox(height: 16),
-                  _buildRemindersCard(textTheme),
-                  const SizedBox(height: 16),
-                  _buildHistoryCard(textTheme),
-                ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(context, textTheme),
+            Expanded(
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        _buildProgressCard(textTheme),
+                        const SizedBox(height: 16),
+                        _buildTasksCard(textTheme),
+                        const SizedBox(height: 16),
+                        _buildGuidedStepsCard(textTheme),
+                        const SizedBox(height: 16),
+                        _buildRemindersCard(textTheme),
+                        const SizedBox(height: 16),
+                        _buildHistoryCard(textTheme),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -48,12 +53,11 @@ class Screen2 extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.white,
-        border: Border(bottom: BorderSide(color: AppColors.lightGray, width: 2)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.lightGray, width: 2),
+        ),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2),
         ],
       ),
       child: Row(
@@ -67,7 +71,11 @@ class Screen2 extends StatelessWidget {
                 color: AppColors.lightBlue,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.favorite_outline, color: AppColors.white, size: 24),
+              child: const Icon(
+                Icons.favorite_outline,
+                color: AppColors.white,
+                size: 24,
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -82,17 +90,32 @@ class Screen2 extends StatelessWidget {
                     color: AppColors.grey98,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: () {},
+                      onTap: () {
+                        // Rota filha de /screen_2: o stack fica […, home, perfil].
+                        context.pushNamed('screen_3');
+                      },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 10,
+                        ),
                         constraints: const BoxConstraints(minHeight: 48),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.person_outline, size: 20, color: AppColors.darkBlue),
+                            Icon(
+                              Icons.person_outline,
+                              size: 20,
+                              color: AppColors.darkBlue,
+                            ),
                             const SizedBox(width: 8),
-                            Text('Perfil', style: textTheme.titleMedium?.copyWith(fontSize: 16)),
+                            Text(
+                              'Perfil',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontSize: 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -110,14 +133,26 @@ class Screen2 extends StatelessWidget {
                       onTap: () => context.go(AppRouter.screen1),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 10,
+                        ),
                         constraints: const BoxConstraints(minHeight: 48),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.logout, size: 20, color: AppColors.darkBlue),
+                            Icon(
+                              Icons.logout,
+                              size: 20,
+                              color: AppColors.darkBlue,
+                            ),
                             const SizedBox(width: 8),
-                            Text('Sair', style: textTheme.titleMedium?.copyWith(fontSize: 16)),
+                            Text(
+                              'Sair',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontSize: 16,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -145,7 +180,11 @@ class Screen2 extends StatelessWidget {
               color: AppColors.lightBlue.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.wb_sunny_outlined, color: AppColors.lightBlue, size: 24),
+            child: const Icon(
+              Icons.wb_sunny_outlined,
+              color: AppColors.lightBlue,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -162,7 +201,9 @@ class Screen2 extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: 0.25,
                     backgroundColor: AppColors.linkWater,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lightBlue),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.lightBlue,
+                    ),
                     minHeight: 16,
                   ),
                 ),
@@ -170,7 +211,14 @@ class Screen2 extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Text('25%', style: textTheme.headlineMedium?.copyWith(color: AppColors.lightBlue, fontSize: 24, fontWeight: FontWeight.w700)),
+          Text(
+            '25%',
+            style: textTheme.headlineMedium?.copyWith(
+              color: AppColors.lightBlue,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -208,8 +256,15 @@ class Screen2 extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: completed ? AppColors.jungleGreen.withValues(alpha: 0.1) : AppColors.white,
-          border: Border.all(color: completed ? AppColors.jungleGreen.withValues(alpha: 0.4) : AppColors.lightGray, width: 2),
+          color: completed
+              ? AppColors.jungleGreen.withValues(alpha: 0.1)
+              : AppColors.white,
+          border: Border.all(
+            color: completed
+                ? AppColors.jungleGreen.withValues(alpha: 0.4)
+                : AppColors.lightGray,
+            width: 2,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -222,7 +277,9 @@ class Screen2 extends StatelessWidget {
                 border: Border.all(color: AppColors.lightBlue, width: 2),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: completed ? const Icon(Icons.check, size: 16, color: AppColors.white) : null,
+              child: completed
+                  ? const Icon(Icons.check, size: 16, color: AppColors.white)
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -236,7 +293,12 @@ class Screen2 extends StatelessWidget {
                 ),
               ),
             ),
-            if (completed) const Icon(Icons.check_circle, color: AppColors.jungleGreen, size: 24),
+            if (completed)
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.jungleGreen,
+                size: 24,
+              ),
           ],
         ),
       ),
@@ -251,7 +313,11 @@ class Screen2 extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_tree_outlined, color: AppColors.lightBlue, size: 24),
+              const Icon(
+                Icons.account_tree_outlined,
+                color: AppColors.lightBlue,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               Text('Etapas Guiadas', style: textTheme.headlineMedium),
             ],
@@ -262,7 +328,9 @@ class Screen2 extends StatelessWidget {
             child: LinearProgressIndicator(
               value: 1 / 3,
               backgroundColor: AppColors.linkWater,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.lightBlue),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.lightBlue,
+              ),
               minHeight: 12,
             ),
           ),
@@ -280,7 +348,9 @@ class Screen2 extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {},
                 style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text('Concluir "Passo 2"'),
               ),
@@ -291,15 +361,29 @@ class Screen2 extends StatelessWidget {
     );
   }
 
-  Widget _stepRow(TextTheme textTheme, int step, String description, bool isActive, bool completed) {
+  Widget _stepRow(
+    TextTheme textTheme,
+    int step,
+    String description,
+    bool isActive,
+    bool completed,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.linkWater : (completed ? AppColors.jungleGreen.withValues(alpha: 0.1) : AppColors.white),
+          color: isActive
+              ? AppColors.linkWater
+              : (completed
+                    ? AppColors.jungleGreen.withValues(alpha: 0.1)
+                    : AppColors.white),
           border: Border.all(
-            color: isActive ? AppColors.lightBlue : (completed ? AppColors.jungleGreen.withValues(alpha: 0.4) : AppColors.lightGray),
+            color: isActive
+                ? AppColors.lightBlue
+                : (completed
+                      ? AppColors.jungleGreen.withValues(alpha: 0.4)
+                      : AppColors.lightGray),
             width: 2,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -311,13 +395,27 @@ class Screen2 extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: completed ? AppColors.jungleGreen : (isActive ? AppColors.lightBlue : const Color(0xFFE9EDF2)),
+                color: completed
+                    ? AppColors.jungleGreen
+                    : (isActive
+                          ? AppColors.lightBlue
+                          : const Color(0xFFE9EDF2)),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: completed
-                  ? const Text('✓', style: TextStyle(color: AppColors.white, fontSize: 18))
-                  : Text('$step', style: TextStyle(color: isActive ? AppColors.white : AppColors.gray, fontWeight: FontWeight.w700, fontSize: 18)),
+                  ? const Text(
+                      '✓',
+                      style: TextStyle(color: AppColors.white, fontSize: 18),
+                    )
+                  : Text(
+                      '$step',
+                      style: TextStyle(
+                        color: isActive ? AppColors.white : AppColors.gray,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -326,7 +424,10 @@ class Screen2 extends StatelessWidget {
                 children: [
                   Text('Passo $step', style: textTheme.titleMedium),
                   const SizedBox(height: 4),
-                  Text(description, style: textTheme.bodyMedium?.copyWith(fontSize: 16)),
+                  Text(
+                    description,
+                    style: textTheme.bodyMedium?.copyWith(fontSize: 16),
+                  ),
                 ],
               ),
             ),
@@ -349,35 +450,44 @@ class Screen2 extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.notifications_active_outlined, color: AppColors.lightBlue, size: 24),
+              const Icon(
+                Icons.notifications_active_outlined,
+                color: AppColors.lightBlue,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               Text('Lembretes', style: textTheme.headlineMedium),
             ],
           ),
           const SizedBox(height: 16),
-          ...reminders.map((e) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                border: Border.all(color: AppColors.lightGray, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(e.$1, color: AppColors.lightBlue, size: 28),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      e.$2,
-                      style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500, fontSize: 18),
+          ...reminders.map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  border: Border.all(color: AppColors.lightGray, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(e.$1, color: AppColors.lightBlue, size: 28),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        e.$2,
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 18,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -403,28 +513,49 @@ class Screen2 extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ...items.map((e) => Column(
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.check_circle, color: AppColors.jungleGreen, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(e.$1, style: textTheme.bodyLarge?.copyWith(fontSize: 18))),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.linkWater,
-                      borderRadius: BorderRadius.circular(9999),
+          ...items.map(
+            (e) => Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: AppColors.jungleGreen,
+                      size: 20,
                     ),
-                    child: Text(e.$2, style: textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF0C57A7))),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: AppColors.lightGray),
-              const SizedBox(height: 12),
-            ],
-          )),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        e.$1,
+                        style: textTheme.bodyLarge?.copyWith(fontSize: 18),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.linkWater,
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      child: Text(
+                        e.$2,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF0C57A7),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: AppColors.lightGray),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
         ],
       ),
     );
