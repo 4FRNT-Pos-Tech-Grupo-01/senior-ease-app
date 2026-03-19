@@ -148,83 +148,74 @@ class _Screen1State extends State<Screen1> {
   }
 
   Widget _buildEmailField(ThemeData theme) {
-    return Semantics(
-      textField: true,
-      label: 'Endereço de email',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Endereço de email', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(hintText: 'exemplo@exemplo.com'),
-            style: theme.textTheme.bodyMedium,
-            validator: (value) {
-              final v = value?.trim() ?? '';
-              if (v.isEmpty) return 'Insira o seu email';
-              if (!v.contains('@')) return 'Email inválido';
-              return null;
-            },
-          ),
-        ],
-      ),
+    // Não envolver o TextFormField em Semantics(textField: true) no pai — em
+    // alguns alvos (ex.: macOS) isso pode roubar foco/toques do campo.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Endereço de email', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
+          decoration: const InputDecoration(hintText: 'exemplo@exemplo.com'),
+          style: theme.textTheme.bodyMedium,
+          validator: (value) {
+            final v = value?.trim() ?? '';
+            if (v.isEmpty) return 'Insira o seu email';
+            if (!v.contains('@')) return 'Email inválido';
+            return null;
+          },
+        ),
+      ],
     );
   }
 
   Widget _buildPasswordField(ThemeData theme) {
-    return Semantics(
-      textField: true,
-      label: 'Senha',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Senha', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Stack(
-            alignment: Alignment.centerRight,
-            children: [
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                autofillHints: const [AutofillHints.password],
-                decoration: const InputDecoration(hintText: 'Insira sua senha'),
-                style: theme.textTheme.bodyMedium,
-                validator: (value) {
-                  final v = value ?? '';
-                  if (v.isEmpty) return 'Insira a sua senha';
-                  if (v.length < 4) {
-                    return 'A senha deve ter pelo menos 4 caracteres';
-                  }
-                  return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Senha', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Stack(
+          alignment: Alignment.centerRight,
+          children: [
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autofillHints: const [AutofillHints.password],
+              decoration: const InputDecoration(hintText: 'Insira sua senha'),
+              style: theme.textTheme.bodyMedium,
+              validator: (value) {
+                final v = value ?? '';
+                if (v.isEmpty) return 'Insira a sua senha';
+                if (v.length < 4) {
+                  return 'A senha deve ter pelo menos 4 caracteres';
+                }
+                return null;
+              },
+            ),
+            Semantics(
+              label: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+              button: true,
+              child: IconButton(
+                onPressed: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
                 },
-              ),
-              Semantics(
-                label: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
-                button: true,
-                child: IconButton(
-                  onPressed: () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  },
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: AppColors.gray,
-                    size: 24,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: AppColors.gray,
+                  size: 24,
                 ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

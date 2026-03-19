@@ -28,5 +28,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>O Senior Ease usa notificações para lembretes de saúde, medicamentos e compromissos.</string>
 </dict>
 </plist>

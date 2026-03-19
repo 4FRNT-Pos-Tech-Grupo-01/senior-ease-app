@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/models/reminder.dart';
+import 'package:senior_ease/services/notification_service.dart';
+import 'package:senior_ease/services/reminders_storage.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
@@ -24,6 +30,10 @@ class _Screen2State extends State<Screen2> {
 
   /// Etapas guiadas: [passo1, passo2, passo3].
   final List<bool> _guidedDone = [true, false, false];
+
+  List<Reminder> _reminders = [];
+  bool _remindersLoaded = false;
+  Timer? _remindersStorageSyncTimer;
 
   int get _completedTaskCount => _tasksDone.where((e) => e).length;
 
@@ -51,6 +61,305 @@ class _Screen2State extends State<Screen2> {
     if (i < 0) return;
     setState(() => _guidedDone[i] = true);
     _showSnack('Passo ${i + 1} concluído!');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapReminders();
+    _remindersStorageSyncTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _syncRemindersWithStorageIfChanged(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _remindersStorageSyncTimer?.cancel();
+    super.dispose();
+  }
+
+  bool _sameReminderLists(List<Reminder> a, List<Reminder> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i];
+      final y = b[i];
+      if (x.id != y.id ||
+          x.title != y.title ||
+          x.scheduledAt != y.scheduledAt ||
+          x.notificationId != y.notificationId ||
+          x.iconIndex != y.iconIndex) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Alinha `_reminders` com [SharedPreferences] (ex.: após purga automática).
+  Future<void> _syncRemindersWithStorageIfChanged() async {
+    if (!mounted || !_remindersLoaded) return;
+    final list = await RemindersStorage.instance.load();
+    list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    if (!mounted) return;
+    if (_sameReminderLists(_reminders, list)) return;
+    // Nunca atualizar árvore durante layout / desativação de InheritedWidgets
+    // (iOS: assert `_dependents.isEmpty` em debug).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      setState(() => _reminders = list);
+    });
+  }
+
+  Future<void> _bootstrapReminders() async {
+    final storage = RemindersStorage.instance;
+    var list = await storage.load();
+    if (list.isEmpty) {
+      list = await _createDefaultReminders();
+      await storage.save(list);
+    }
+    list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    await NotificationService.instance.syncReminders(list);
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      setState(() {
+        _reminders = list;
+        _remindersLoaded = true;
+      });
+    });
+  }
+
+  Future<List<Reminder>> _createDefaultReminders() async {
+    final storage = RemindersStorage.instance;
+    final now = DateTime.now();
+    final tomorrow = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).add(const Duration(days: 1));
+
+    DateTime atDay(DateTime day, int h, int m) =>
+        DateTime(day.year, day.month, day.day, h, m);
+
+    DateTime nextWallClock(int h, int m) {
+      var d = DateTime(now.year, now.month, now.day, h, m);
+      if (!d.isAfter(now)) d = d.add(const Duration(days: 1));
+      return d;
+    }
+
+    final stamp = now.microsecondsSinceEpoch;
+    return [
+      Reminder(
+        id: 'default_${stamp}_1',
+        title: 'Consulta médica',
+        scheduledAt: atDay(tomorrow, 14, 0),
+        notificationId: await storage.takeNextNotificationId(),
+        iconIndex: 0,
+      ),
+      Reminder(
+        id: 'default_${stamp}_2',
+        title: 'Tomar remédio',
+        scheduledAt: nextWallClock(20, 0),
+        notificationId: await storage.takeNextNotificationId(),
+        iconIndex: 1,
+      ),
+      Reminder(
+        id: 'default_${stamp}_3',
+        title: 'Reunião familiar',
+        scheduledAt: atDay(tomorrow.add(const Duration(days: 2)), 10, 0),
+        notificationId: await storage.takeNextNotificationId(),
+        iconIndex: 2,
+      ),
+    ];
+  }
+
+  Future<void> _persistRemindersAndSync() async {
+    await RemindersStorage.instance.save(_reminders);
+    await NotificationService.instance.syncReminders(_reminders);
+  }
+
+  IconData _reminderIconData(int index) {
+    switch (index.clamp(0, 2)) {
+      case 1:
+        return Icons.notifications_outlined;
+      case 2:
+        return Icons.favorite_border;
+      default:
+        return Icons.schedule;
+    }
+  }
+
+  String _formatReminderWhen(DateTime d) {
+    return DateFormat('dd/MM/yyyy · HH:mm').format(d);
+  }
+
+  Future<void> _confirmDeleteReminder(Reminder r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Apagar lembrete?'),
+        content: Text('“${r.title}” será removido.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Apagar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _reminders.removeWhere((x) => x.id == r.id));
+    await _persistRemindersAndSync();
+    _showSnack('Lembrete removido.');
+  }
+
+  Future<void> _showAddReminderDialog() async {
+    final titleCtrl = TextEditingController();
+    var chosen = DateTime.now().add(const Duration(hours: 1));
+    var iconIdx = 0;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlg) {
+            return AlertDialog(
+              title: const Text('Novo lembrete'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição',
+                        hintText: 'Ex.: Tomar medicamento',
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_formatReminderWhen(chosen)),
+                      subtitle: const Text('Data e hora'),
+                      trailing: const Icon(Icons.edit_calendar_outlined),
+                      onTap: () async {
+                        final d = await showDatePicker(
+                          context: ctx,
+                          initialDate: chosen,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365 * 2),
+                          ),
+                        );
+                        if (d == null || !ctx.mounted) return;
+                        final t = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay.fromDateTime(chosen),
+                        );
+                        if (t == null) return;
+                        setDlg(() {
+                          chosen = DateTime(
+                            d.year,
+                            d.month,
+                            d.day,
+                            t.hour,
+                            t.minute,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Ícone', style: Theme.of(ctx).textTheme.titleSmall),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(3, (i) {
+                        final sel = iconIdx == i;
+                        return IconButton.filledTonal(
+                          onPressed: () => setDlg(() => iconIdx = i),
+                          style: IconButton.styleFrom(
+                            backgroundColor: sel ? AppColors.linkWater : null,
+                            foregroundColor: sel
+                                ? AppColors.lightBlue
+                                : AppColors.gray,
+                          ),
+                          icon: Icon(_reminderIconData(i)),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    final text = titleCtrl.text.trim();
+    titleCtrl.dispose();
+
+    if (saved != true || !mounted) return;
+    if (text.isEmpty) {
+      _showSnack('Escreva uma descrição.');
+      return;
+    }
+    final now = DateTime.now();
+    if (!chosen.isAfter(now)) {
+      _showSnack('Escolha uma data e hora no futuro.');
+      return;
+    }
+    // O relógio do picker usa normalmente segundos :00. Se escolheres só o
+    // “minuto seguinte”, ao premir Guardar esse instante pode já ter passado
+    // e o iOS não recebe nada para agendar.
+    const minLead = Duration(minutes: 2);
+    if (!chosen.isAfter(now.add(minLead))) {
+      _showSnack(
+        'Para a notificação ser agendada com fiabilidade, escolha uma hora pelo '
+        'menos 2 minutos à frente do relógio atual.',
+      );
+      return;
+    }
+
+    final storage = RemindersStorage.instance;
+    final r = Reminder(
+      id: 'r_${DateTime.now().microsecondsSinceEpoch}',
+      title: text,
+      scheduledAt: chosen,
+      notificationId: await storage.takeNextNotificationId(),
+      iconIndex: iconIdx,
+    );
+
+    setState(() {
+      _reminders = [..._reminders, r]
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    });
+    await _persistRemindersAndSync();
+    if (await NotificationService.instance.isDarwinNotificationsBlocked()) {
+      _showSnack(
+        'Lembrete guardado. Ative notificações em Definições → Notificações → '
+        'Senior Ease para ser alertada na hora.',
+      );
+    } else {
+      _showSnack(
+        'Lembrete criado. Receberá uma notificação na hora marcada.',
+      );
+    }
   }
 
   @override
@@ -545,11 +854,18 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _buildRemindersCard(TextTheme textTheme) {
-    final reminders = [
-      (Icons.schedule, 'Consulta médica amanhã às 14h'),
-      (Icons.notifications_outlined, 'Tomar remédio às 20h'),
-      (Icons.favorite_border, 'Reunião familiar no domingo'),
-    ];
+    if (!_remindersLoaded) {
+      return LargeCard(
+        semanticLabel: 'Lembretes a carregar',
+        child: const SizedBox(
+          height: 100,
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.lightBlue),
+          ),
+        ),
+      );
+    }
+
     return LargeCard(
       semanticLabel: 'Lembretes',
       child: Column(
@@ -563,53 +879,114 @@ class _Screen2State extends State<Screen2> {
                 size: 24,
               ),
               const SizedBox(width: 8),
-              Text('Lembretes', style: textTheme.headlineMedium),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...reminders.map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Material(
-                color: Colors.transparent,
-                child: Semantics(
-                  button: true,
-                  label: 'Lembrete: ${e.$2}. Toque para detalhes',
-                  child: InkWell(
-                    onTap: () => _showSnack(e.$2),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        border: Border.all(
-                          color: AppColors.lightGray,
-                          width: 2,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(e.$1, color: AppColors.lightBlue, size: 28),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              e.$2,
-                              style: textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+              Expanded(
+                child: Text('Lembretes', style: textTheme.headlineMedium),
+              ),
+              Semantics(
+                label: 'Adicionar novo lembrete',
+                button: true,
+                child: IconButton(
+                  onPressed: _showAddReminderDialog,
+                  icon: const Icon(Icons.add_circle_outline),
+                  color: AppColors.lightBlue,
+                  tooltip: 'Novo lembrete',
+                  iconSize: 32,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            NotificationService.instance.isSupported
+                ? 'Toque num lembrete para ver a hora. Use + para criar. As notificações aparecem no telemóvel ou computador.'
+                : 'Nesta plataforma as notificações do sistema não estão disponíveis; os lembretes ficam guardados na app.',
+            style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          if (_reminders.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Nenhum lembrete. Toque em + para criar.',
+                style: textTheme.bodyLarge,
+              ),
+            )
+          else
+            ..._reminders.map((r) => _reminderTile(r, textTheme)),
+        ],
+      ),
+    );
+  }
+
+  Widget _reminderTile(Reminder r, TextTheme textTheme) {
+    final past = !r.scheduledAt.isAfter(DateTime.now());
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: Semantics(
+          label: 'Lembrete: ${r.title}, ${_formatReminderWhen(r.scheduledAt)}',
+          button: true,
+          child: InkWell(
+            onTap: () => _showSnack(
+              '${r.title}\n${_formatReminderWhen(r.scheduledAt)}'
+              '${past ? '\n(Já passou — pode apagar se quiser)' : ''}',
+            ),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border.all(color: AppColors.lightGray, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _reminderIconData(r.iconIndex),
+                    color: past ? AppColors.gray : AppColors.lightBlue,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          r.title,
+                          style: textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 18,
+                            color: past ? AppColors.gray : AppColors.darkBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatReminderWhen(r.scheduledAt),
+                          style: textTheme.bodyMedium?.copyWith(fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Semantics(
+                    label: 'Apagar lembrete ${r.title}',
+                    button: true,
+                    child: IconButton(
+                      onPressed: () => _confirmDeleteReminder(r),
+                      icon: const Icon(Icons.delete_outline),
+                      color: AppColors.gray,
+                      tooltip: 'Apagar',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
