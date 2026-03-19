@@ -12,7 +12,24 @@ class Screen1 extends StatefulWidget {
 
 class _Screen1State extends State<Screen1> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _rememberMe = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,10 +99,7 @@ class _Screen1State extends State<Screen1> {
         const SizedBox(height: 12),
         Text(
           'Bem vindo! Por favor, faça login para iniciar ',
-          style: textTheme.bodyMedium?.copyWith(
-            fontSize: 16,
-            height: 24 / 16,
-          ),
+          style: textTheme.bodyMedium?.copyWith(fontSize: 16, height: 24 / 16),
           textAlign: TextAlign.center,
         ),
       ],
@@ -119,6 +133,8 @@ class _Screen1State extends State<Screen1> {
             _buildEmailField(theme),
             const SizedBox(height: 16),
             _buildPasswordField(theme),
+            const SizedBox(height: 12),
+            _buildRememberMeRow(theme),
             const SizedBox(height: 16),
             _buildForgotPasswordLink(textTheme),
             const SizedBox(height: 16),
@@ -138,17 +154,20 @@ class _Screen1State extends State<Screen1> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Endereço de email',
-            style: theme.textTheme.titleMedium,
-          ),
+          Text('Endereço de email', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           TextFormField(
+            controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              hintText: 'exemplo@exemplo.com',
-            ),
+            autofillHints: const [AutofillHints.email],
+            decoration: const InputDecoration(hintText: 'exemplo@exemplo.com'),
             style: theme.textTheme.bodyMedium,
+            validator: (value) {
+              final v = value?.trim() ?? '';
+              if (v.isEmpty) return 'Insira o seu email';
+              if (!v.contains('@')) return 'Email inválido';
+              return null;
+            },
           ),
         ],
       ),
@@ -162,25 +181,28 @@ class _Screen1State extends State<Screen1> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Senha',
-            style: theme.textTheme.titleMedium,
-          ),
+          Text('Senha', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Stack(
             alignment: Alignment.centerRight,
             children: [
               TextFormField(
+                controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: const InputDecoration(
-                  hintText: 'Insira sua senha',
-                ),
+                autofillHints: const [AutofillHints.password],
+                decoration: const InputDecoration(hintText: 'Insira sua senha'),
                 style: theme.textTheme.bodyMedium,
+                validator: (value) {
+                  final v = value ?? '';
+                  if (v.isEmpty) return 'Insira a sua senha';
+                  if (v.length < 4) {
+                    return 'A senha deve ter pelo menos 4 caracteres';
+                  }
+                  return null;
+                },
               ),
               Semantics(
-                label: _obscurePassword
-                    ? 'Mostrar senha'
-                    : 'Ocultar senha',
+                label: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
                 button: true,
                 child: IconButton(
                   onPressed: () {
@@ -206,6 +228,45 @@ class _Screen1State extends State<Screen1> {
     );
   }
 
+  Widget _buildRememberMeRow(ThemeData theme) {
+    return Semantics(
+      checked: _rememberMe,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _rememberMe = !_rememberMe),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Checkbox(
+                  value: _rememberMe,
+                  onChanged: (value) {
+                    setState(() => _rememberMe = value ?? false);
+                  },
+                  activeColor: AppColors.lightBlue,
+                  side: const BorderSide(color: AppColors.lightGray, width: 2),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                Expanded(
+                  child: Text(
+                    'Manter-me conectado neste dispositivo',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.darkBlue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildForgotPasswordLink(TextTheme textTheme) {
     return Align(
       alignment: Alignment.centerRight,
@@ -213,7 +274,9 @@ class _Screen1State extends State<Screen1> {
         link: true,
         label: 'Esqueceu a senha?',
         child: TextButton(
-          onPressed: () {},
+          onPressed: () {
+            _showSnack('Recuperação de senha em breve.');
+          },
           style: TextButton.styleFrom(
             foregroundColor: AppColors.lightBlue,
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -239,6 +302,9 @@ class _Screen1State extends State<Screen1> {
       child: ElevatedButton(
         onPressed: () {
           if (_formKey.currentState?.validate() ?? false) {
+            if (_rememberMe) {
+              _showSnack('Sessão será lembrada neste dispositivo.');
+            }
             context.push(AppRouter.screen2);
           }
         },
@@ -261,15 +327,14 @@ class _Screen1State extends State<Screen1> {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
       children: [
-        Text(
-          'Não possui uma conta?',
-          style: textTheme.bodyLarge,
-        ),
+        Text('Não possui uma conta?', style: textTheme.bodyLarge),
         Semantics(
           link: true,
           label: 'Crie uma conta',
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+              _showSnack('Cadastro em breve.');
+            },
             style: TextButton.styleFrom(
               foregroundColor: AppColors.lightBlue,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -300,7 +365,9 @@ class _Screen1State extends State<Screen1> {
           link: true,
           label: 'Contacte apoio: 0-800-123-4567',
           child: InkWell(
-            onTap: () {},
+            onTap: () {
+              _showSnack('Ligue para o apoio: 0-800-123-4567');
+            },
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
