@@ -4,8 +4,54 @@ import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
-class Screen2 extends StatelessWidget {
+class Screen2 extends StatefulWidget {
   const Screen2({super.key});
+
+  @override
+  State<Screen2> createState() => _Screen2State();
+}
+
+class _Screen2State extends State<Screen2> {
+  static const List<String> _taskLabels = [
+    'Tomar remédio da manhã',
+    'Caminhar por 20 minutos',
+    'Beber 2 copos de água',
+    'Ligar para a família',
+  ];
+
+  /// Tarefas concluídas (mesmo estado inicial da UI estática).
+  final List<bool> _tasksDone = [false, false, true, false];
+
+  /// Etapas guiadas: [passo1, passo2, passo3].
+  final List<bool> _guidedDone = [true, false, false];
+
+  int get _completedTaskCount => _tasksDone.where((e) => e).length;
+
+  double get _taskProgress =>
+      _tasksDone.isEmpty ? 0 : _completedTaskCount / _tasksDone.length;
+
+  int get _guidedCompleted => _guidedDone.where((e) => e).length;
+
+  double get _guidedProgress =>
+      _guidedDone.isEmpty ? 0 : _guidedCompleted / _guidedDone.length;
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _toggleTask(int index) {
+    setState(() => _tasksDone[index] = !_tasksDone[index]);
+  }
+
+  void _completeNextGuidedStep() {
+    final i = _guidedDone.indexWhere((d) => !d);
+    if (i < 0) return;
+    setState(() => _guidedDone[i] = true);
+    _showSnack('Passo ${i + 1} concluído!');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,9 +214,14 @@ class Screen2 extends StatelessWidget {
   }
 
   Widget _buildProgressCard(TextTheme textTheme) {
+    final total = _tasksDone.length;
+    final done = _completedTaskCount;
+    final pct = (_taskProgress * 100).round();
+
     return LargeCard(
       padding: const EdgeInsets.all(24),
-      semanticLabel: 'Progresso de hoje: 1 de 4 tarefas, 25 por cento',
+      semanticLabel:
+          'Progresso de hoje: $done de $total tarefas, $pct por cento',
       child: Row(
         children: [
           Container(
@@ -192,14 +243,14 @@ class Screen2 extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Progresso de hoje: 1 de 4 tarefas',
+                  'Progresso de hoje: $done de $total tarefas',
                   style: textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(9999),
                   child: LinearProgressIndicator(
-                    value: 0.25,
+                    value: _taskProgress.clamp(0.0, 1.0),
                     backgroundColor: AppColors.linkWater,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       AppColors.lightBlue,
@@ -212,7 +263,7 @@ class Screen2 extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Text(
-            '25%',
+            '$pct%',
             style: textTheme.headlineMedium?.copyWith(
               color: AppColors.lightBlue,
               fontSize: 24,
@@ -225,12 +276,6 @@ class Screen2 extends StatelessWidget {
   }
 
   Widget _buildTasksCard(TextTheme textTheme) {
-    final tasks = [
-      ('Tomar remédio da manhã', false),
-      ('Caminhar por 20 minutos', false),
-      ('Beber 2 copos de água', true),
-      ('Ligar para a família', false),
-    ];
     return LargeCard(
       semanticLabel: 'Minhas Tarefas',
       child: Column(
@@ -244,68 +289,111 @@ class Screen2 extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          ...tasks.map((e) => _taskRow(textTheme, e.$1, e.$2)),
+          for (var i = 0; i < _taskLabels.length; i++)
+            _taskRow(textTheme, i, _taskLabels[i], _tasksDone[i]),
         ],
       ),
     );
   }
 
-  Widget _taskRow(TextTheme textTheme, String label, bool completed) {
+  Widget _taskRow(
+    TextTheme textTheme,
+    int index,
+    String label,
+    bool completed,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: completed
-              ? AppColors.jungleGreen.withValues(alpha: 0.1)
-              : AppColors.white,
-          border: Border.all(
-            color: completed
-                ? AppColors.jungleGreen.withValues(alpha: 0.4)
-                : AppColors.lightGray,
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: Semantics(
+          button: true,
+          label: completed
+              ? 'Marcar tarefa como não feita: $label'
+              : 'Marcar tarefa como feita: $label',
+          child: InkWell(
+            onTap: () => _toggleTask(index),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: completed ? AppColors.lightBlue : Colors.transparent,
-                border: Border.all(color: AppColors.lightBlue, width: 2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: completed
-                  ? const Icon(Icons.check, size: 16, color: AppColors.white)
-                  : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 18,
-                  decoration: completed ? TextDecoration.lineThrough : null,
-                  color: completed ? AppColors.gray : AppColors.darkBlue,
+                color: completed
+                    ? AppColors.jungleGreen.withValues(alpha: 0.1)
+                    : AppColors.white,
+                border: Border.all(
+                  color: completed
+                      ? AppColors.jungleGreen.withValues(alpha: 0.4)
+                      : AppColors.lightGray,
+                  width: 2,
                 ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: completed
+                          ? AppColors.lightBlue
+                          : Colors.transparent,
+                      border: Border.all(color: AppColors.lightBlue, width: 2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: completed
+                        ? const Icon(
+                            Icons.check,
+                            size: 16,
+                            color: AppColors.white,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 18,
+                        decoration: completed
+                            ? TextDecoration.lineThrough
+                            : null,
+                        color: completed ? AppColors.gray : AppColors.darkBlue,
+                      ),
+                    ),
+                  ),
+                  if (completed)
+                    const Icon(
+                      Icons.check_circle,
+                      color: AppColors.jungleGreen,
+                      size: 24,
+                    ),
+                ],
               ),
             ),
-            if (completed)
-              const Icon(
-                Icons.check_circle,
-                color: AppColors.jungleGreen,
-                size: 24,
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
+  /// Passo atual a destacar: primeiro ainda não concluído (índice 0 = passo 1).
+  bool _isGuidedStepActive(int stepIndex) {
+    if (stepIndex < 0 || stepIndex >= _guidedDone.length) return false;
+    if (_guidedDone[stepIndex]) return false;
+    for (var j = 0; j < stepIndex; j++) {
+      if (!_guidedDone[j]) return false;
+    }
+    return true;
+  }
+
   Widget _buildGuidedStepsCard(TextTheme textTheme) {
+    final nextIdx = _guidedDone.indexWhere((d) => !d);
+    final allDone = nextIdx < 0;
+    final buttonLabel = allDone
+        ? 'Todas as etapas concluídas'
+        : 'Concluir "Passo ${nextIdx + 1}"';
+
     return LargeCard(
       semanticLabel: 'Etapas Guiadas',
       child: Column(
@@ -326,7 +414,7 @@ class Screen2 extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(9999),
             child: LinearProgressIndicator(
-              value: 1 / 3,
+              value: _guidedProgress.clamp(0.0, 1.0),
               backgroundColor: AppColors.linkWater,
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppColors.lightBlue,
@@ -335,24 +423,43 @@ class Screen2 extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _stepRow(textTheme, 1, 'Pegue o remédio na caixa azul', false, true),
-          _stepRow(textTheme, 2, 'Tome com um copo cheio de água', true, false),
-          _stepRow(textTheme, 3, 'Anote no caderno que já tomou', false, false),
+          _stepRow(
+            textTheme,
+            1,
+            'Pegue o remédio na caixa azul',
+            _isGuidedStepActive(0),
+            _guidedDone[0],
+          ),
+          _stepRow(
+            textTheme,
+            2,
+            'Tome com um copo cheio de água',
+            _isGuidedStepActive(1),
+            _guidedDone[1],
+          ),
+          _stepRow(
+            textTheme,
+            3,
+            'Anote no caderno que já tomou',
+            _isGuidedStepActive(2),
+            _guidedDone[2],
+          ),
           const SizedBox(height: 16),
           Semantics(
             button: true,
-            label: 'Concluir Passo 2',
+            label: buttonLabel,
+            enabled: !allDone,
             child: SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: allDone ? null : _completeNextGuidedStep,
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Concluir "Passo 2"'),
+                child: Text(buttonLabel),
               ),
             ),
           ),
@@ -463,27 +570,41 @@ class Screen2 extends StatelessWidget {
           ...reminders.map(
             (e) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  border: Border.all(color: AppColors.lightGray, width: 2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(e.$1, color: AppColors.lightBlue, size: 28),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        e.$2,
-                        style: textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 18,
+              child: Material(
+                color: Colors.transparent,
+                child: Semantics(
+                  button: true,
+                  label: 'Lembrete: ${e.$2}. Toque para detalhes',
+                  child: InkWell(
+                    onTap: () => _showSnack(e.$2),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        border: Border.all(
+                          color: AppColors.lightGray,
+                          width: 2,
                         ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(e.$1, color: AppColors.lightBlue, size: 28),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              e.$2,
+                              style: textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -516,39 +637,55 @@ class Screen2 extends StatelessWidget {
           ...items.map(
             (e) => Column(
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppColors.jungleGreen,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        e.$1,
-                        style: textTheme.bodyLarge?.copyWith(fontSize: 18),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.linkWater,
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      child: Text(
-                        e.$2,
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF0C57A7),
+                Material(
+                  color: Colors.transparent,
+                  child: Semantics(
+                    button: true,
+                    label: '${e.$1}, ${e.$2}',
+                    child: InkWell(
+                      onTap: () => _showSnack('${e.$1} — registado em ${e.$2}'),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.jungleGreen,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                e.$1,
+                                style: textTheme.bodyLarge?.copyWith(
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 11,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.linkWater,
+                                borderRadius: BorderRadius.circular(9999),
+                              ),
+                              child: Text(
+                                e.$2,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF0C57A7),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Divider(height: 1, color: AppColors.lightGray),
