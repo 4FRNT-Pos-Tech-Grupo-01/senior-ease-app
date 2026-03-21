@@ -56,6 +56,10 @@ class _Screen2State extends State<Screen2> {
     setState(() => _tasksDone[index] = !_tasksDone[index]);
   }
 
+  void _onManageTasks() {
+    context.pushNamed('task_management');
+  }
+
   void _completeNextGuidedStep() {
     final i = _guidedDone.indexWhere((d) => !d);
     if (i < 0) return;
@@ -600,6 +604,32 @@ class _Screen2State extends State<Screen2> {
           const SizedBox(height: 16),
           for (var i = 0; i < _taskLabels.length; i++)
             _taskRow(textTheme, i, _taskLabels[i], _tasksDone[i]),
+          const SizedBox(height: 16),
+          Semantics(
+            button: true,
+            label: 'Gerenciar tarefas',
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _onManageTasks,
+                style: ElevatedButton.styleFrom(
+                  elevation: 2,
+                  shadowColor: AppColors.darkBlue.withValues(alpha: 0.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'Gerenciar',
+                  style: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
