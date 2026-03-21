@@ -290,7 +290,7 @@ class _Screen2State extends State<Screen2> {
                             backgroundColor: sel ? AppColors.linkWater : null,
                             foregroundColor: sel
                                 ? AppColors.lightBlue
-                                : AppColors.gray,
+                                : Theme.of(ctx).colorScheme.onSurfaceVariant,
                           ),
                           icon: Icon(_reminderIconData(i)),
                         );
@@ -372,7 +372,7 @@ class _Screen2State extends State<Screen2> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.grey98,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -407,13 +407,14 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _buildHeader(BuildContext context, TextTheme textTheme) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       height: 74,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: cs.surface,
         border: Border(
-          bottom: BorderSide(color: AppColors.lightGray, width: 2),
+          bottom: BorderSide(color: cs.outline, width: 2),
         ),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2),
@@ -446,7 +447,7 @@ class _Screen2State extends State<Screen2> {
                   button: true,
                   label: 'Perfil',
                   child: Material(
-                    color: AppColors.grey98,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () {
@@ -466,7 +467,7 @@ class _Screen2State extends State<Screen2> {
                             Icon(
                               Icons.person_outline,
                               size: 20,
-                              color: AppColors.darkBlue,
+                              color: cs.onSurface,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -486,7 +487,7 @@ class _Screen2State extends State<Screen2> {
                   button: true,
                   label: 'Sair',
                   child: Material(
-                    color: AppColors.grey98,
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () => context.go(AppRouter.screen1),
@@ -503,7 +504,7 @@ class _Screen2State extends State<Screen2> {
                             Icon(
                               Icons.logout,
                               size: 20,
-                              color: AppColors.darkBlue,
+                              color: cs.onSurface,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -615,7 +616,9 @@ class _Screen2State extends State<Screen2> {
                 onPressed: _onManageTasks,
                 style: ElevatedButton.styleFrom(
                   elevation: 2,
-                  shadowColor: AppColors.darkBlue.withValues(alpha: 0.2),
+                  shadowColor: Theme.of(context).colorScheme.onSurface.withValues(
+                        alpha: 0.2,
+                      ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -641,6 +644,7 @@ class _Screen2State extends State<Screen2> {
     String label,
     bool completed,
   ) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -658,11 +662,11 @@ class _Screen2State extends State<Screen2> {
               decoration: BoxDecoration(
                 color: completed
                     ? AppColors.jungleGreen.withValues(alpha: 0.1)
-                    : AppColors.white,
+                    : cs.surface,
                 border: Border.all(
                   color: completed
                       ? AppColors.jungleGreen.withValues(alpha: 0.4)
-                      : AppColors.lightGray,
+                      : cs.outline,
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(12),
@@ -697,7 +701,9 @@ class _Screen2State extends State<Screen2> {
                         decoration: completed
                             ? TextDecoration.lineThrough
                             : null,
-                        color: completed ? AppColors.gray : AppColors.darkBlue,
+                        color: completed
+                            ? cs.onSurfaceVariant
+                            : cs.onSurface,
                       ),
                     ),
                   ),
@@ -729,8 +735,6 @@ class _Screen2State extends State<Screen2> {
   /// Cores do banner de sucesso (etapas concluídas), alinhadas ao layout de referência.
   static const Color _guidedDoneBannerBg = Color(0xFFF1F8F3);
   static const Color _guidedDoneBannerBorder = Color(0xFFA8D5BA);
-  static const Color _guidedDoneBannerText = Color(0xFF1E293B);
-
   Widget _buildGuidedStepsCard(TextTheme textTheme) {
     final nextIdx = _guidedDone.indexWhere((d) => !d);
     final allDone = nextIdx < 0;
@@ -820,6 +824,7 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _buildGuidedStepsCompletionBanner(TextTheme textTheme) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -845,7 +850,7 @@ class _Screen2State extends State<Screen2> {
                   'Todas as etapas concluídas!',
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: _guidedDoneBannerText,
+                    color: cs.onSurface,
                     height: 1.3,
                   ),
                 ),
@@ -854,7 +859,7 @@ class _Screen2State extends State<Screen2> {
                   'Parabéns! 🥳',
                   style: textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: _guidedDoneBannerText,
+                    color: cs.onSurface,
                     height: 1.35,
                   ),
                 ),
@@ -873,6 +878,7 @@ class _Screen2State extends State<Screen2> {
     bool isActive,
     bool completed,
   ) {
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
@@ -882,13 +888,13 @@ class _Screen2State extends State<Screen2> {
               ? AppColors.linkWater
               : (completed
                     ? AppColors.jungleGreen.withValues(alpha: 0.1)
-                    : AppColors.white),
+                    : cs.surface),
           border: Border.all(
             color: isActive
                 ? AppColors.lightBlue
                 : (completed
                       ? AppColors.jungleGreen.withValues(alpha: 0.4)
-                      : AppColors.lightGray),
+                      : cs.outline),
             width: 2,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -904,7 +910,7 @@ class _Screen2State extends State<Screen2> {
                     ? AppColors.jungleGreen
                     : (isActive
                           ? AppColors.lightBlue
-                          : const Color(0xFFE9EDF2)),
+                          : cs.surfaceContainerHighest),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -916,7 +922,7 @@ class _Screen2State extends State<Screen2> {
                   : Text(
                       '$step',
                       style: TextStyle(
-                        color: isActive ? AppColors.white : AppColors.gray,
+                        color: isActive ? AppColors.white : cs.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                         fontSize: 18,
                       ),
@@ -1012,6 +1018,7 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _reminderTile(Reminder r, TextTheme textTheme) {
+    final cs = Theme.of(context).colorScheme;
     final past = !r.scheduledAt.isAfter(DateTime.now());
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1029,15 +1036,15 @@ class _Screen2State extends State<Screen2> {
             child: Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.white,
-                border: Border.all(color: AppColors.lightGray, width: 2),
+                color: cs.surface,
+                border: Border.all(color: cs.outline, width: 2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     _reminderIconData(r.iconIndex),
-                    color: past ? AppColors.gray : AppColors.lightBlue,
+                    color: past ? cs.onSurfaceVariant : AppColors.lightBlue,
                     size: 28,
                   ),
                   const SizedBox(width: 16),
@@ -1050,7 +1057,7 @@ class _Screen2State extends State<Screen2> {
                           style: textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w500,
                             fontSize: 18,
-                            color: past ? AppColors.gray : AppColors.darkBlue,
+                            color: past ? cs.onSurfaceVariant : cs.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1067,7 +1074,7 @@ class _Screen2State extends State<Screen2> {
                     child: IconButton(
                       onPressed: () => _confirmDeleteReminder(r),
                       icon: const Icon(Icons.delete_outline),
-                      color: AppColors.gray,
+                      color: cs.onSurfaceVariant,
                       tooltip: 'Apagar',
                     ),
                   ),
@@ -1154,7 +1161,7 @@ class _Screen2State extends State<Screen2> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Divider(height: 1, color: AppColors.lightGray),
+                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
                 const SizedBox(height: 12),
               ],
             ),

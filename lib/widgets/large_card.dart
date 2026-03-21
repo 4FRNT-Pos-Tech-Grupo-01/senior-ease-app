@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:senior_ease/theme/app_theme.dart';
 
 class LargeCard extends StatelessWidget {
   const LargeCard({
@@ -15,12 +14,13 @@ class LargeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final card = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.lightGray, width: 2),
+        border: Border.all(color: cs.outline, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),

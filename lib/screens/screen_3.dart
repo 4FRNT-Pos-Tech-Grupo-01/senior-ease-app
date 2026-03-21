@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
@@ -12,8 +13,6 @@ class Screen3 extends StatefulWidget {
 }
 
 class _Screen3State extends State<Screen3> {
-  String _fontSize = 'normal';
-  String _contrast = 'normal';
   String _navigation = 'default';
   bool _extraConfirmations = false;
   bool _notifications = true;
@@ -25,7 +24,7 @@ class _Screen3State extends State<Screen3> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.grey98,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -40,9 +39,9 @@ class _Screen3State extends State<Screen3> {
                       children: [
                         _buildProfileCard(textTheme),
                         const SizedBox(height: 16),
-                        _buildFontSizeCard(textTheme),
+                        _buildFontSizeCard(context, textTheme),
                         const SizedBox(height: 16),
-                        _buildContrastCard(textTheme),
+                        _buildContrastCard(context, textTheme),
                         const SizedBox(height: 16),
                         _buildNavigationCard(textTheme),
                         const SizedBox(height: 16),
@@ -62,11 +61,12 @@ class _Screen3State extends State<Screen3> {
   }
 
   Widget _buildHeader(BuildContext context, TextTheme textTheme) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: cs.surface,
         border: Border(
-          bottom: BorderSide(color: AppColors.lightGray, width: 2),
+          bottom: BorderSide(color: cs.outline, width: 2),
         ),
         boxShadow: [
           BoxShadow(
@@ -151,8 +151,9 @@ class _Screen3State extends State<Screen3> {
     required VoidCallback onTap,
     required TextTheme textTheme,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: AppColors.grey98,
+      color: Theme.of(context).scaffoldBackgroundColor,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -161,18 +162,18 @@ class _Screen3State extends State<Screen3> {
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.lightGray, width: 2),
+            border: Border.all(color: cs.outline, width: 2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.darkBlue),
+              Icon(icon, size: 20, color: cs.onSurface),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.darkBlue,
+                  color: cs.onSurface,
                 ),
               ),
             ],
@@ -209,7 +210,7 @@ class _Screen3State extends State<Screen3> {
                 'Usuário Senior Ease',
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.darkBlue,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 20,
                 ),
               ),
@@ -221,7 +222,8 @@ class _Screen3State extends State<Screen3> {
     );
   }
 
-  Widget _buildFontSizeCard(TextTheme textTheme) {
+  Widget _buildFontSizeCard(BuildContext context, TextTheme textTheme) {
+    final settings = AppSettingsScope.of(context);
     return _buildSettingsCard(
       icon: Icons.text_fields,
       title: 'Tamanho da Fonte',
@@ -230,10 +232,11 @@ class _Screen3State extends State<Screen3> {
         children: [
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Aa',
               subtitle: 'Normal',
-              selected: _fontSize == 'normal',
-              onTap: () => setState(() => _fontSize = 'normal'),
+              selected: settings.fontSize == 'normal',
+              onTap: () => settings.setFontSize('normal'),
               labelStyle: textTheme.titleMedium?.copyWith(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -244,10 +247,11 @@ class _Screen3State extends State<Screen3> {
           const SizedBox(width: 12),
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Aa',
               subtitle: 'Grande',
-              selected: _fontSize == 'large',
-              onTap: () => setState(() => _fontSize = 'large'),
+              selected: settings.fontSize == 'large',
+              onTap: () => settings.setFontSize('large'),
               labelStyle: textTheme.titleMedium?.copyWith(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -258,10 +262,11 @@ class _Screen3State extends State<Screen3> {
           const SizedBox(width: 12),
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Aa',
               subtitle: 'Extra Grande',
-              selected: _fontSize == 'xlarge',
-              onTap: () => setState(() => _fontSize = 'xlarge'),
+              selected: settings.fontSize == 'xlarge',
+              onTap: () => settings.setFontSize('xlarge'),
               labelStyle: textTheme.titleMedium?.copyWith(
                 fontSize: 30,
                 fontWeight: FontWeight.w700,
@@ -275,7 +280,9 @@ class _Screen3State extends State<Screen3> {
     );
   }
 
-  Widget _buildContrastCard(TextTheme textTheme) {
+  Widget _buildContrastCard(BuildContext context, TextTheme textTheme) {
+    final settings = AppSettingsScope.of(context);
+    final cs = Theme.of(context).colorScheme;
     return _buildSettingsCard(
       icon: Icons.contrast,
       title: 'Nível de Contraste',
@@ -284,22 +291,24 @@ class _Screen3State extends State<Screen3> {
         children: [
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Normal',
-              selected: _contrast == 'normal',
-              onTap: () => setState(() => _contrast = 'normal'),
+              selected: settings.contrast == 'normal',
+              onTap: () => settings.setContrast('normal'),
               labelStyle: textTheme.titleMedium,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Alto Contraste',
-              selected: _contrast == 'high',
-              onTap: () => setState(() => _contrast = 'high'),
+              selected: settings.contrast == 'high',
+              onTap: () => settings.setContrast('high'),
               labelStyle: textTheme.titleMedium?.copyWith(
-                color: _contrast == 'high'
-                    ? AppColors.darkBlue
-                    : AppColors.gray,
+                color: settings.contrast == 'high'
+                    ? cs.onSurface
+                    : cs.onSurfaceVariant,
               ),
             ),
           ),
@@ -317,6 +326,7 @@ class _Screen3State extends State<Screen3> {
         children: [
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Padrão',
               subtitle: 'Todas as opções visíveis',
               selected: _navigation == 'default',
@@ -329,6 +339,7 @@ class _Screen3State extends State<Screen3> {
           const SizedBox(width: 12),
           Expanded(
             child: _buildChoiceButton(
+              context: context,
               label: 'Simplificado',
               subtitle: 'Apenas o essencial',
               selected: _navigation == 'simple',
@@ -358,7 +369,7 @@ class _Screen3State extends State<Screen3> {
             onChanged: (value) => setState(() => _extraConfirmations = value),
           ),
           const SizedBox(height: 4),
-          Container(height: 1, color: AppColors.lightGray),
+          Container(height: 1, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 4),
           _buildSwitchRow(
             icon: Icons.notifications_none_outlined,
@@ -368,7 +379,7 @@ class _Screen3State extends State<Screen3> {
             onChanged: (value) => setState(() => _notifications = value),
           ),
           const SizedBox(height: 4),
-          Container(height: 1, color: AppColors.lightGray),
+          Container(height: 1, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 4),
           _buildSwitchRow(
             icon: Icons.volume_up_outlined,
@@ -387,24 +398,33 @@ class _Screen3State extends State<Screen3> {
       width: double.infinity,
       height: 56,
       child: OutlinedButton.icon(
-        onPressed: () {
+        onPressed: () async {
+          await AppSettingsScope.of(context).resetAccessibility();
+          if (!mounted) return;
           setState(() {
-            _fontSize = 'normal';
-            _contrast = 'normal';
             _navigation = 'default';
             _extraConfirmations = false;
             _notifications = true;
             _soundAlerts = false;
           });
         },
-        icon: const Icon(Icons.refresh, size: 24, color: AppColors.darkBlue),
+        icon: Icon(
+          Icons.refresh,
+          size: 24,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
         label: Text(
           'Restaurar configurações padrão',
-          style: textTheme.titleMedium?.copyWith(color: AppColors.darkBlue),
+          style: textTheme.titleMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: AppColors.lightGray, width: 2),
-          backgroundColor: AppColors.grey98,
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.outline,
+            width: 2,
+          ),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -447,6 +467,7 @@ class _Screen3State extends State<Screen3> {
   }
 
   Widget _buildChoiceButton({
+    required BuildContext context,
     required String label,
     String? subtitle,
     required bool selected,
@@ -455,8 +476,11 @@ class _Screen3State extends State<Screen3> {
     TextStyle? subtitleStyle,
     bool alignStart = false,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: selected ? AppColors.linkWater : AppColors.white,
+      color: selected
+          ? AppColors.linkWater
+          : cs.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -467,7 +491,7 @@ class _Screen3State extends State<Screen3> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.lightBlue : AppColors.lightGray,
+              color: selected ? AppColors.lightBlue : cs.outline,
               width: 2,
             ),
           ),
@@ -497,10 +521,11 @@ class _Screen3State extends State<Screen3> {
     required ValueChanged<bool> onChanged,
   }) {
     final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.lightGray, width: 2),
+        border: Border.all(color: cs.outline, width: 2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -515,7 +540,7 @@ class _Screen3State extends State<Screen3> {
                   title,
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: AppColors.darkBlue,
+                    color: cs.onSurface,
                   ),
                 ),
                 Text(
@@ -529,8 +554,8 @@ class _Screen3State extends State<Screen3> {
             value: value,
             onChanged: onChanged,
             activeTrackColor: AppColors.lightBlue,
-            inactiveTrackColor: AppColors.lightGray,
-            thumbColor: const WidgetStatePropertyAll(AppColors.grey98),
+            inactiveTrackColor: cs.outline.withValues(alpha: 0.5),
+            thumbColor: WidgetStatePropertyAll(cs.surface),
             trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
           ),
         ],

@@ -185,15 +185,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.grey98,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildToolbar(textTheme),
+            _buildToolbar(context, textTheme),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
@@ -218,13 +219,14 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     );
   }
 
-  Widget _buildToolbar(TextTheme textTheme) {
+  Widget _buildToolbar(BuildContext context, TextTheme textTheme) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: cs.surface,
         border: Border(
-          bottom: BorderSide(color: AppColors.lightGray, width: 2),
+          bottom: BorderSide(color: cs.outline, width: 2),
         ),
         boxShadow: [
           BoxShadow(
@@ -245,9 +247,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 child: IconButton(
                   onPressed: _popOrHome,
                   icon: const Icon(Icons.arrow_back),
-                  color: AppColors.darkBlue,
+                  color: cs.onSurface,
                   style: IconButton.styleFrom(
-                    backgroundColor: AppColors.grey98,
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -418,18 +420,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     required _ManagedTask task,
     required int index,
   }) {
-    final errorColor = Theme.of(context).colorScheme.error;
+    final cs = Theme.of(context).colorScheme;
+    final errorColor = cs.error;
 
     return Padding(
       key: key,
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: AppColors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.lightGray, width: 2),
+            border: Border.all(color: cs.outline, width: 2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -441,7 +444,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                   padding: const EdgeInsets.only(right: 4),
                   child: Icon(
                     Icons.drag_indicator,
-                    color: AppColors.gray,
+                    color: cs.onSurfaceVariant,
                     size: 28,
                   ),
                 ),
@@ -475,7 +478,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                   style: textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w500,
                     fontSize: 18,
-                    color: AppColors.darkBlue,
+                    color: cs.onSurface,
                   ),
                 ),
               ),
@@ -483,7 +486,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 tooltip: 'Editar',
                 onPressed: () => _editTask(task),
                 icon: const Icon(Icons.edit_outlined),
-                color: AppColors.gray,
+                color: cs.onSurfaceVariant,
               ),
               IconButton(
                 tooltip: 'Apagar',
@@ -498,7 +501,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   }
 
   Widget _completedRow(TextTheme textTheme, _ManagedTask task) {
-    final errorColor = Theme.of(context).colorScheme.error;
+    final cs = Theme.of(context).colorScheme;
+    final errorColor = cs.error;
 
     return Material(
       color: Colors.transparent,
@@ -546,7 +550,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                   fontWeight: FontWeight.w500,
                   fontSize: 18,
                   decoration: TextDecoration.lineThrough,
-                  color: AppColors.gray,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
             ),
@@ -554,7 +558,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
               tooltip: 'Editar',
               onPressed: () => _editTask(task),
               icon: const Icon(Icons.edit_outlined),
-              color: AppColors.gray,
+              color: cs.onSurfaceVariant,
             ),
             IconButton(
               tooltip: 'Apagar',

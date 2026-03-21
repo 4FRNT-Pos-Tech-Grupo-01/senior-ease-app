@@ -37,7 +37,7 @@ class _Screen1State extends State<Screen1> {
     final textTheme = theme.textTheme;
 
     return Scaffold(
-      backgroundColor: AppColors.grey98,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -111,12 +111,13 @@ class _Screen1State extends State<Screen1> {
     ThemeData theme,
     TextTheme textTheme,
   ) {
+    final cs = theme.colorScheme;
     return Container(
       padding: const EdgeInsets.all(34),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.lightGray, width: 2),
+        border: Border.all(color: cs.outline, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),
@@ -207,7 +208,7 @@ class _Screen1State extends State<Screen1> {
                   _obscurePassword
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  color: AppColors.gray,
+                  color: theme.colorScheme.onSurfaceVariant,
                   size: 24,
                 ),
                 constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
@@ -238,7 +239,7 @@ class _Screen1State extends State<Screen1> {
                     setState(() => _rememberMe = value ?? false);
                   },
                   activeColor: AppColors.lightBlue,
-                  side: const BorderSide(color: AppColors.lightGray, width: 2),
+                  side: BorderSide(color: theme.colorScheme.outline, width: 2),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
                 ),
@@ -246,7 +247,7 @@ class _Screen1State extends State<Screen1> {
                   child: Text(
                     'Manter-me conectado neste dispositivo',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.darkBlue,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ),

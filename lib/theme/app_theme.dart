@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:senior_ease/services/app_settings_controller.dart';
 
 class AppColors {
   AppColors._();
@@ -18,58 +19,81 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light {
+  /// Tema completo conforme contraste (tamanho de fonte via [MediaQuery.textScaler]).
+  static ThemeData themeForSettings(AppSettingsController settings) {
+    final hc = settings.highContrast;
+    final cs = hc ? _highContrastColorScheme : _normalColorScheme;
+    final textTheme = _textTheme(cs);
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.light(
-        primary: AppColors.lightBlue,
-        onPrimary: AppColors.white,
-        surface: AppColors.white,
-        onSurface: AppColors.darkBlue,
-        surfaceContainerHighest: AppColors.grey98,
-        outline: AppColors.lightGray,
-        onSurfaceVariant: AppColors.gray,
-      ),
-      scaffoldBackgroundColor: AppColors.grey98,
-      textTheme: _textTheme,
-      inputDecorationTheme: _inputDecorationTheme,
+      colorScheme: cs,
+      scaffoldBackgroundColor: hc ? AppColors.white : AppColors.grey98,
+      textTheme: textTheme,
+      inputDecorationTheme: _inputDecorationTheme(cs, hc),
       elevatedButtonTheme: _elevatedButtonTheme,
     );
   }
 
-  static TextTheme get _textTheme {
+  static ColorScheme get _normalColorScheme {
+    return ColorScheme.light(
+      primary: AppColors.lightBlue,
+      onPrimary: AppColors.white,
+      surface: AppColors.white,
+      onSurface: AppColors.darkBlue,
+      surfaceContainerHighest: AppColors.grey98,
+      outline: AppColors.lightGray,
+      onSurfaceVariant: AppColors.gray,
+    );
+  }
+
+  /// Texto preto e contornos fortes para leitura com máximo contraste.
+  static ColorScheme get _highContrastColorScheme {
+    return const ColorScheme.light(
+      primary: Color(0xFF0D5AA7),
+      onPrimary: Color(0xFFFFFFFF),
+      surface: Color(0xFFFFFFFF),
+      onSurface: Color(0xFF000000),
+      surfaceContainerHighest: Color(0xFFF0F0F0),
+      outline: Color(0xFF000000),
+      onSurfaceVariant: Color(0xFF1A1A1A),
+      error: Color(0xFFB00020),
+      onError: Color(0xFFFFFFFF),
+    );
+  }
+
+  static TextTheme _textTheme(ColorScheme cs) {
     return TextTheme(
       headlineLarge: GoogleFonts.nunito(
         fontSize: 36,
         fontWeight: FontWeight.w800,
         height: 40 / 36,
         letterSpacing: -0.9,
-        color: AppColors.darkBlue,
+        color: cs.onSurface,
       ),
       headlineMedium: GoogleFonts.nunito(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         height: 32 / 24,
         letterSpacing: -0.5,
-        color: AppColors.darkBlue,
+        color: cs.onSurface,
       ),
       titleMedium: GoogleFonts.sourceSans3(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         height: 28 / 18,
-        color: AppColors.darkBlue,
+        color: cs.onSurface,
       ),
       bodyLarge: GoogleFonts.sourceSans3(
         fontSize: 18,
         fontWeight: FontWeight.w400,
         height: 28 / 18,
-        color: AppColors.gray,
+        color: cs.onSurfaceVariant,
       ),
       bodyMedium: GoogleFonts.sourceSans3(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         height: 24 / 16,
-        color: AppColors.gray,
+        color: cs.onSurfaceVariant,
       ),
       labelLarge: GoogleFonts.sourceSans3(
         fontSize: 16,
@@ -80,41 +104,46 @@ class AppTheme {
     );
   }
 
-  static InputDecorationTheme get _inputDecorationTheme {
+  static InputDecorationTheme _inputDecorationTheme(
+    ColorScheme cs,
+    bool highContrast,
+  ) {
     return InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.grey98,
+      fillColor: highContrast ? AppColors.white : AppColors.grey98,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: AppColors.lightGray, width: 2),
+        borderSide: BorderSide(color: cs.outline, width: highContrast ? 2 : 2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: AppColors.lightBlue, width: 2),
+        borderSide: BorderSide(
+          color: AppColors.lightBlue,
+          width: highContrast ? 3 : 2,
+        ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       hintStyle: GoogleFonts.sourceSans3(
         fontSize: 16,
         fontWeight: FontWeight.w400,
-        color: AppColors.gray,
+        color: cs.onSurfaceVariant,
       ),
     );
   }
 
-  static ElevatedButtonThemeData get _elevatedButtonTheme {
-    return ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.lightBlue,
-        foregroundColor: AppColors.white,
-        minimumSize: const Size.fromHeight(56),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: GoogleFonts.sourceSans3(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          height: 28 / 16,
+  static final ElevatedButtonThemeData _elevatedButtonTheme =
+      ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.lightBlue,
+          foregroundColor: AppColors.white,
+          minimumSize: const Size.fromHeight(56),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: GoogleFonts.sourceSans3(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 28 / 16,
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
