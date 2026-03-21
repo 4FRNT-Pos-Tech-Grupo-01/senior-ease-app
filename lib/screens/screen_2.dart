@@ -726,6 +726,11 @@ class _Screen2State extends State<Screen2> {
     return true;
   }
 
+  /// Cores do banner de sucesso (etapas concluídas), alinhadas ao layout de referência.
+  static const Color _guidedDoneBannerBg = Color(0xFFF1F8F3);
+  static const Color _guidedDoneBannerBorder = Color(0xFFA8D5BA);
+  static const Color _guidedDoneBannerText = Color(0xFF1E293B);
+
   Widget _buildGuidedStepsCard(TextTheme textTheme) {
     final nextIdx = _guidedDone.indexWhere((d) => !d);
     final allDone = nextIdx < 0;
@@ -784,22 +789,76 @@ class _Screen2State extends State<Screen2> {
             _guidedDone[2],
           ),
           const SizedBox(height: 16),
-          Semantics(
-            button: true,
-            label: buttonLabel,
-            enabled: !allDone,
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: allDone ? null : _completeNextGuidedStep,
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          if (allDone)
+            Semantics(
+              container: true,
+              label: 'Todas as etapas concluídas. Parabéns.',
+              child: _buildGuidedStepsCompletionBanner(textTheme),
+            )
+          else
+            Semantics(
+              button: true,
+              label: buttonLabel,
+              enabled: true,
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _completeNextGuidedStep,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(buttonLabel),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuidedStepsCompletionBanner(TextTheme textTheme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      decoration: BoxDecoration(
+        color: _guidedDoneBannerBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _guidedDoneBannerBorder, width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.celebration_outlined,
+            color: _guidedDoneBannerBorder,
+            size: 44,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Todas as etapas concluídas!',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: _guidedDoneBannerText,
+                    height: 1.3,
                   ),
                 ),
-                child: Text(buttonLabel),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  'Parabéns! 🥳',
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: _guidedDoneBannerText,
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
