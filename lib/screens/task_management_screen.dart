@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/services/activity_history_storage.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
@@ -166,6 +167,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
         _pending.removeWhere((e) => e.id == task.id);
       }
     });
+    ActivityHistoryStorage.instance.append(
+      'Tarefa apagada (gestão): ${task.title}',
+    );
     _showSnack('Tarefa removida.');
   }
 
@@ -174,6 +178,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
       _pending.removeWhere((e) => e.id == task.id);
       _completed.add(task);
     });
+    ActivityHistoryStorage.instance.append(
+      'Tarefa concluída (gestão): ${task.title}',
+    );
   }
 
   void _toggleToPending(_ManagedTask task) {

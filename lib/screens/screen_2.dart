@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/app_settings_scope.dart';
+import 'package:senior_ease/models/activity_history_entry.dart';
 import 'package:senior_ease/models/reminder.dart';
+import 'package:senior_ease/services/activity_history_storage.dart';
 import 'package:senior_ease/services/notification_service.dart';
 import 'package:senior_ease/services/reminders_storage.dart';
 import 'package:senior_ease/theme/app_theme.dart';
@@ -36,7 +38,15 @@ class _Screen2State extends State<Screen2> {
 
   List<Reminder> _reminders = [];
   bool _remindersLoaded = false;
+  List<ActivityHistoryEntry> _history = [];
+  bool _historyLoaded = false;
   Timer? _remindersStorageSyncTimer;
+
+  static const List<String> _guidedStepDescriptions = [
+    'Pegue o remédio na caixa azul',
+    'Tome com um copo cheio de água',
+    'Anote no caderno que já tomou',
+  ];
 
   int get _completedTaskCount => _tasksDone.where((e) => e).length;
 
@@ -53,6 +63,38 @@ class _Screen2State extends State<Screen2> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _bootstrapHistory() async {
+    final list = await ActivityHistoryStorage.instance.load();
+    if (!mounted) return;
+    setState(() {
+      _history = list;
+      _historyLoaded = true;
+    });
+  }
+
+  Future<void> _recordActivity(String title) async {
+    await ActivityHistoryStorage.instance.append(title);
+    if (!mounted) return;
+    final list = await ActivityHistoryStorage.instance.load();
+    if (!mounted) return;
+    setState(() => _history = list);
+  }
+
+  String _formatHistoryWhen(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    final hm = DateFormat('HH:mm').format(d);
+    if (day == today) return 'Hoje, $hm';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Ontem, $hm';
+    }
+    if (d.year == now.year) {
+      return DateFormat('dd/MM · HH:mm').format(d);
+    }
+    return DateFormat('dd/MM/yyyy').format(d);
   }
 
   void _playCompletionFeedback() {
@@ -78,11 +120,15 @@ class _Screen2State extends State<Screen2> {
     }
     if (!mounted) return;
     setState(() => _tasksDone[index] = !_tasksDone[index]);
-    if (willComplete) _playCompletionFeedback();
+    if (willComplete) {
+      _playCompletionFeedback();
+      await _recordActivity('Tarefa concluída: $label');
+    }
   }
 
-  void _onManageTasks() {
-    context.pushNamed('task_management');
+  Future<void> _onManageTasks() async {
+    await context.pushNamed('task_management');
+    if (mounted) await _bootstrapHistory();
   }
 
   Future<void> _completeNextGuidedStep() async {
@@ -103,12 +149,17 @@ class _Screen2State extends State<Screen2> {
     setState(() => _guidedDone[i] = true);
     _playCompletionFeedback();
     _showSnack('Passo ${i + 1} concluído!');
+    final desc = i < _guidedStepDescriptions.length
+        ? _guidedStepDescriptions[i]
+        : 'Passo ${i + 1}';
+    await _recordActivity('Etapa guiada: $desc');
   }
 
   @override
   void initState() {
     super.initState();
     _bootstrapReminders();
+    _bootstrapHistory();
     _remindersStorageSyncTimer = Timer.periodic(
       const Duration(seconds: 2),
       (_) => _syncRemindersWithStorageIfChanged(),
@@ -268,6 +319,7 @@ class _Screen2State extends State<Screen2> {
     if (ok != true || !mounted) return;
     setState(() => _reminders.removeWhere((x) => x.id == r.id));
     await _persistRemindersAndSync();
+    await _recordActivity('Lembrete removido: ${r.title}');
     _showSnack('Lembrete removido.');
   }
 
@@ -419,6 +471,7 @@ class _Screen2State extends State<Screen2> {
         ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     });
     await _persistRemindersAndSync();
+    await _recordActivity('Lembrete criado: $text');
     if (await NotificationService.instance.isDarwinNotificationsBlocked()) {
       _showSnack(
         'Lembrete guardado. Ative notificações em Definições → Notificações → '
@@ -1180,12 +1233,7 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _buildHistoryCard(TextTheme textTheme) {
-    final items = [
-      ('Tomou remédio da manhã', 'Hoje, 08:15'),
-      ('Caminhou 25 minutos', 'Ontem, 09:00'),
-      ('Bebeu 6 copos de água', 'Ontem'),
-      ('Ligou para a família', '03/03/2026'),
-    ];
+    final cs = Theme.of(context).colorScheme;
     return LargeCard(
       semanticLabel: 'Histórico de Atividades',
       child: Column(
@@ -1199,65 +1247,89 @@ class _Screen2State extends State<Screen2> {
             ],
           ),
           const SizedBox(height: 16),
-          ...items.map(
-            (e) => Column(
-              children: [
-                Material(
-                  color: Colors.transparent,
-                  child: Semantics(
-                    button: true,
-                    label: '${e.$1}, ${e.$2}',
-                    child: InkWell(
-                      onTap: () => _showSnack('${e.$1} — registado em ${e.$2}'),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppColors.jungleGreen,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                e.$1,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  fontSize: 18,
+          if (!_historyLoaded)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.lightBlue),
+              ),
+            )
+          else if (_history.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Ainda não há atividades registadas. Ao concluir tarefas, '
+                'etapas guiadas ou criar lembretes, elas aparecem aqui.',
+                style: textTheme.bodyLarge,
+              ),
+            )
+          else
+            ..._history.asMap().entries.map((me) {
+              final i = me.key;
+              final e = me.value;
+              final whenLabel = _formatHistoryWhen(e.recordedAt);
+              return Column(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: Semantics(
+                      button: true,
+                      label: '${e.title}, $whenLabel',
+                      child: InkWell(
+                        onTap: () => _showSnack(
+                          '${e.title}\nRegistado em $whenLabel',
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.check_circle,
+                                color: AppColors.jungleGreen,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  e.title,
+                                  style: textTheme.bodyLarge?.copyWith(
+                                    fontSize: 18,
+                                  ),
                                 ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.linkWater,
-                                borderRadius: BorderRadius.circular(9999),
-                              ),
-                              child: Text(
-                                e.$2,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF0C57A7),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.linkWater,
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: Text(
+                                  whenLabel,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF0C57A7),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Divider(height: 1, color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
+                  if (i < _history.length - 1) ...[
+                    const SizedBox(height: 12),
+                    Divider(height: 1, color: cs.outline),
+                    const SizedBox(height: 12),
+                  ],
+                ],
+              );
+            }),
         ],
       ),
     );
