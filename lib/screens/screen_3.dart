@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/theme/app_theme.dart';
+import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
 class Screen3 extends StatefulWidget {
@@ -13,50 +14,51 @@ class Screen3 extends StatefulWidget {
 }
 
 class _Screen3State extends State<Screen3> {
-  String _navigation = 'default';
-  bool _extraConfirmations = false;
-  bool _notifications = true;
-  bool _soundAlerts = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    final settings = AppSettingsScope.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(context, textTheme),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 896),
-                    child: Column(
-                      children: [
-                        _buildProfileCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildFontSizeCard(context, textTheme),
-                        const SizedBox(height: 16),
-                        _buildContrastCard(context, textTheme),
-                        const SizedBox(height: 16),
-                        _buildNavigationCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildAdditionalPrefsCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildResetButton(textTheme),
-                      ],
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(context, textTheme),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 896),
+                        child: Column(
+                          children: [
+                            _buildProfileCard(textTheme),
+                            const SizedBox(height: 16),
+                            _buildFontSizeCard(context, textTheme),
+                            const SizedBox(height: 16),
+                            _buildContrastCard(context, textTheme),
+                            const SizedBox(height: 16),
+                            _buildNavigationCard(context, textTheme),
+                            const SizedBox(height: 16),
+                            _buildAdditionalPrefsCard(context, textTheme),
+                            const SizedBox(height: 16),
+                            _buildResetButton(textTheme),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -134,7 +136,21 @@ class _Screen3State extends State<Screen3> {
                 _buildHeaderButton(
                   icon: Icons.logout,
                   label: 'Sair',
-                  onTap: () => context.go(AppRouter.screen1),
+                  onTap: () async {
+                    final s = AppSettingsScope.of(context);
+                    if (!await confirmBeforeImportantAction(
+                      context,
+                      settings: s,
+                      title: 'Sair?',
+                      message:
+                          'Será necessário iniciar sessão de novo para voltar.',
+                      confirmLabel: 'Sair',
+                    )) {
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    context.go(AppRouter.screen1);
+                  },
                   textTheme: textTheme,
                 ),
               ],
@@ -317,7 +333,8 @@ class _Screen3State extends State<Screen3> {
     );
   }
 
-  Widget _buildNavigationCard(TextTheme textTheme) {
+  Widget _buildNavigationCard(BuildContext context, TextTheme textTheme) {
+    final settings = AppSettingsScope.of(context);
     return _buildSettingsCard(
       icon: Icons.navigation_outlined,
       title: 'Modo de Navegação',
@@ -329,8 +346,8 @@ class _Screen3State extends State<Screen3> {
               context: context,
               label: 'Padrão',
               subtitle: 'Todas as opções visíveis',
-              selected: _navigation == 'default',
-              onTap: () => setState(() => _navigation = 'default'),
+              selected: settings.navigationMode == 'default',
+              onTap: () => settings.setNavigationMode('default'),
               alignStart: true,
               labelStyle: textTheme.titleMedium,
               subtitleStyle: textTheme.bodyMedium?.copyWith(fontSize: 14),
@@ -342,8 +359,8 @@ class _Screen3State extends State<Screen3> {
               context: context,
               label: 'Simplificado',
               subtitle: 'Apenas o essencial',
-              selected: _navigation == 'simple',
-              onTap: () => setState(() => _navigation = 'simple'),
+              selected: settings.navigationMode == 'simple',
+              onTap: () => settings.setNavigationMode('simple'),
               alignStart: true,
               labelStyle: textTheme.titleMedium,
               subtitleStyle: textTheme.bodyMedium?.copyWith(fontSize: 14),
@@ -354,7 +371,8 @@ class _Screen3State extends State<Screen3> {
     );
   }
 
-  Widget _buildAdditionalPrefsCard(TextTheme textTheme) {
+  Widget _buildAdditionalPrefsCard(BuildContext context, TextTheme textTheme) {
+    final settings = AppSettingsScope.of(context);
     return _buildSettingsCard(
       icon: Icons.shield_outlined,
       title: 'Preferências Adicionais',
@@ -365,8 +383,8 @@ class _Screen3State extends State<Screen3> {
             icon: Icons.shield_outlined,
             title: 'Confirmações extras',
             subtitle: 'Pedir confirmação antes de ações importantes',
-            value: _extraConfirmations,
-            onChanged: (value) => setState(() => _extraConfirmations = value),
+            value: settings.extraConfirmations,
+            onChanged: settings.setExtraConfirmations,
           ),
           const SizedBox(height: 4),
           Container(height: 1, color: Theme.of(context).colorScheme.outline),
@@ -375,8 +393,8 @@ class _Screen3State extends State<Screen3> {
             icon: Icons.notifications_none_outlined,
             title: 'Lembretes e notificações',
             subtitle: 'Receber avisos de tarefas e compromissos',
-            value: _notifications,
-            onChanged: (value) => setState(() => _notifications = value),
+            value: settings.notificationsEnabled,
+            onChanged: settings.setNotificationsEnabled,
           ),
           const SizedBox(height: 4),
           Container(height: 1, color: Theme.of(context).colorScheme.outline),
@@ -385,8 +403,8 @@ class _Screen3State extends State<Screen3> {
             icon: Icons.volume_up_outlined,
             title: 'Alertas sonoros',
             subtitle: 'Sons ao concluir tarefas e receber lembretes',
-            value: _soundAlerts,
-            onChanged: (value) => setState(() => _soundAlerts = value),
+            value: settings.soundAlerts,
+            onChanged: settings.setSoundAlerts,
           ),
         ],
       ),
@@ -399,14 +417,7 @@ class _Screen3State extends State<Screen3> {
       height: 56,
       child: OutlinedButton.icon(
         onPressed: () async {
-          await AppSettingsScope.of(context).resetAccessibility();
-          if (!mounted) return;
-          setState(() {
-            _navigation = 'default';
-            _extraConfirmations = false;
-            _notifications = true;
-            _soundAlerts = false;
-          });
+          await AppSettingsScope.of(context).resetAllSettings();
         },
         icon: Icon(
           Icons.refresh,

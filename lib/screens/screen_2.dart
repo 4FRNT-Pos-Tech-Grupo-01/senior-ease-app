@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/services/notification_service.dart';
 import 'package:senior_ease/services/reminders_storage.dart';
 import 'package:senior_ease/theme/app_theme.dart';
+import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
 class Screen2 extends StatefulWidget {
@@ -52,18 +55,53 @@ class _Screen2State extends State<Screen2> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _toggleTask(int index) {
+  void _playCompletionFeedback() {
+    if (!mounted) return;
+    if (!AppSettingsScope.of(context).soundAlerts) return;
+    HapticFeedback.mediumImpact();
+    SystemSound.play(SystemSoundType.click);
+  }
+
+  Future<void> _toggleTask(int index) async {
+    if (!mounted) return;
+    final settings = AppSettingsScope.of(context);
+    final label = _taskLabels[index];
+    final willComplete = !_tasksDone[index];
+    if (!await confirmBeforeImportantAction(
+      context,
+      settings: settings,
+      title: willComplete ? 'Marcar como feita?' : 'Repor esta tarefa?',
+      message: label,
+      confirmLabel: willComplete ? 'Marcar feita' : 'Repor',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _tasksDone[index] = !_tasksDone[index]);
+    if (willComplete) _playCompletionFeedback();
   }
 
   void _onManageTasks() {
     context.pushNamed('task_management');
   }
 
-  void _completeNextGuidedStep() {
+  Future<void> _completeNextGuidedStep() async {
+    if (!mounted) return;
+    final settings = AppSettingsScope.of(context);
     final i = _guidedDone.indexWhere((d) => !d);
     if (i < 0) return;
+    if (!await confirmBeforeImportantAction(
+      context,
+      settings: settings,
+      title: 'Concluir passo ${i + 1}?',
+      message: 'Confirma que já realizou esta etapa.',
+      confirmLabel: 'Concluir',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _guidedDone[i] = true);
+    _playCompletionFeedback();
     _showSnack('Passo ${i + 1} concluído!');
   }
 
@@ -122,9 +160,15 @@ class _Screen2State extends State<Screen2> {
       await storage.save(list);
     }
     list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    await NotificationService.instance.syncReminders(list);
     if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!context.mounted) return;
+      final s = AppSettingsScope.of(context);
+      await NotificationService.instance.syncReminders(
+        list,
+        notificationsEnabled: s.notificationsEnabled,
+        playSound: s.soundAlerts,
+      );
       if (!context.mounted) return;
       setState(() {
         _reminders = list;
@@ -179,7 +223,13 @@ class _Screen2State extends State<Screen2> {
 
   Future<void> _persistRemindersAndSync() async {
     await RemindersStorage.instance.save(_reminders);
-    await NotificationService.instance.syncReminders(_reminders);
+    if (!mounted) return;
+    final s = AppSettingsScope.of(context);
+    await NotificationService.instance.syncReminders(
+      _reminders,
+      notificationsEnabled: s.notificationsEnabled,
+      playSound: s.soundAlerts,
+    );
   }
 
   IconData _reminderIconData(int index) {
@@ -225,6 +275,7 @@ class _Screen2State extends State<Screen2> {
     final titleCtrl = TextEditingController();
     var chosen = DateTime.now().add(const Duration(hours: 1));
     var iconIdx = 0;
+    final pageContext = context;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -305,7 +356,21 @@ class _Screen2State extends State<Screen2> {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
+                  onPressed: () async {
+                    if (titleCtrl.text.trim().isEmpty) return;
+                    final settings = AppSettingsScope.of(pageContext);
+                    if (!await confirmBeforeImportantAction(
+                      pageContext,
+                      settings: settings,
+                      title: 'Guardar lembrete?',
+                      message:
+                          'Será agendado um aviso na data e hora escolhidas.',
+                      confirmLabel: 'Guardar',
+                    )) {
+                      return;
+                    }
+                    if (ctx.mounted) Navigator.pop(ctx, true);
+                  },
                   child: const Text('Guardar'),
                 ),
               ],
@@ -370,39 +435,52 @@ class _Screen2State extends State<Screen2> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    final settings = AppSettingsScope.of(context);
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(context, textTheme),
-            Expanded(
-              child: CustomScrollView(
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _buildProgressCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildTasksCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildGuidedStepsCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildRemindersCard(textTheme),
-                        const SizedBox(height: 16),
-                        _buildHistoryCard(textTheme),
-                      ]),
-                    ),
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        final simple = settings.navigationSimple;
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(context, textTheme),
+                Expanded(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            if (!simple) ...[
+                              _buildProgressCard(textTheme),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildTasksCard(textTheme),
+                            const SizedBox(height: 16),
+                            if (!simple) ...[
+                              _buildGuidedStepsCard(textTheme),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildRemindersCard(textTheme),
+                            if (!simple) ...[
+                              const SizedBox(height: 16),
+                              _buildHistoryCard(textTheme),
+                            ],
+                          ]),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -490,7 +568,21 @@ class _Screen2State extends State<Screen2> {
                     color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: () => context.go(AppRouter.screen1),
+                      onTap: () async {
+                        final s = AppSettingsScope.of(context);
+                        if (!await confirmBeforeImportantAction(
+                          context,
+                          settings: s,
+                          title: 'Sair?',
+                          message:
+                              'Será necessário iniciar sessão de novo para voltar.',
+                          confirmLabel: 'Sair',
+                        )) {
+                          return;
+                        }
+                        if (!context.mounted) return;
+                        context.go(AppRouter.screen1);
+                      },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.symmetric(

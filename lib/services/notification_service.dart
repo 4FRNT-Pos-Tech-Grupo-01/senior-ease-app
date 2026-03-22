@@ -124,35 +124,30 @@ final class NotificationService {
     return !(await notificationsEnabledOnDarwin());
   }
 
-  static const _androidChannel = AndroidNotificationDetails(
-    'senior_ease_reminders',
-    'Lembretes',
-    channelDescription: 'Consultas, medicamentos e compromissos',
-    importance: Importance.high,
-    priority: Priority.high,
-    playSound: true,
-    enableVibration: true,
-    visibility: NotificationVisibility.public,
-  );
-
-  /// iOS 14+ usa banner/list em primeiro plano; sem isto a notificação pode
-  /// chegar sem qualquer alerta visível.
-  /// [InterruptionLevel.timeSensitive] ajuda a aparecer com **Concentração** / Focus
-  /// ativo no iOS (o utilizador pode ainda filtrar por app nas definições).
-  static const _darwinDetails = DarwinNotificationDetails(
-    presentAlert: true,
-    presentBadge: true,
-    presentSound: true,
-    presentBanner: true,
-    presentList: true,
-    interruptionLevel: InterruptionLevel.timeSensitive,
-  );
-
-  NotificationDetails get _details => const NotificationDetails(
-    android: _androidChannel,
-    iOS: _darwinDetails,
-    macOS: _darwinDetails,
-  );
+  NotificationDetails _notificationDetails({required bool playSound}) {
+    final darwin = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: playSound,
+      presentBanner: true,
+      presentList: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        'senior_ease_reminders',
+        'Lembretes',
+        channelDescription: 'Consultas, medicamentos e compromissos',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: playSound,
+        enableVibration: true,
+        visibility: NotificationVisibility.public,
+      ),
+      iOS: darwin,
+      macOS: darwin,
+    );
+  }
 
   /// Instante do lembrete no fuso [tz.local] (alinhado ao picker / relógio).
   tz.TZDateTime _scheduledTz(Reminder r) {
@@ -176,7 +171,7 @@ final class NotificationService {
     );
   }
 
-  Future<void> _scheduleOne(Reminder r) async {
+  Future<void> _scheduleOne(Reminder r, {required bool playSound}) async {
     if (!_initialized || !isSupported) return;
 
     final scheduled = _scheduledTz(r);
@@ -189,13 +184,15 @@ final class NotificationService {
       return;
     }
 
+    final details = _notificationDetails(playSound: playSound);
+
     try {
       await _plugin.zonedSchedule(
         r.notificationId,
         'Senior Ease',
         r.title,
         scheduled,
-        _details,
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
       debugPrint(
@@ -219,7 +216,7 @@ final class NotificationService {
           'Senior Ease',
           r.title,
           scheduled,
-          _details,
+          details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         );
         debugPrint(
@@ -237,8 +234,12 @@ final class NotificationService {
     await _plugin.cancel(notificationId);
   }
 
-  /// Cancela pedidos deste plugin e volta a agendar só lembretes futuros.
-  Future<void> syncReminders(List<Reminder> reminders) async {
+  /// Cancela pedidos deste plugin. Se [notificationsEnabled], volta a agendar só futuros.
+  Future<void> syncReminders(
+    List<Reminder> reminders, {
+    bool notificationsEnabled = true,
+    bool playSound = true,
+  }) async {
     if (!_initialized || !isSupported) return;
 
     final pending = await _plugin.pendingNotificationRequests();
@@ -246,10 +247,12 @@ final class NotificationService {
       await _plugin.cancel(p.id);
     }
 
+    if (!notificationsEnabled) return;
+
     final nowTz = tz.TZDateTime.now(tz.local);
     for (final r in reminders) {
       if (_scheduledTz(r).isAfter(nowTz)) {
-        await _scheduleOne(r);
+        await _scheduleOne(r, playSound: playSound);
       }
     }
   }

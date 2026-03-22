@@ -1,5 +1,5 @@
 import 'package:senior_ease/models/reminder.dart';
-import 'package:senior_ease/services/notification_service.dart';
+import 'package:senior_ease/services/app_settings_controller.dart';
 import 'package:senior_ease/services/reminders_storage.dart';
 
 /// Remove lembretes cuja hora já passou há pelo menos [graceAfterScheduled].
@@ -38,7 +38,7 @@ final class ReminderPurge {
     if (kept.length == list.length) return false;
 
     await storage.save(kept);
-    await NotificationService.instance.syncReminders(kept);
+    await AppSettingsController.syncRemindersWithPersistedFlags(kept);
     // A UI dos lembretes (Screen2) sincroniza lendo o armazenamento num timer
     // local — evita ValueNotifier global que no iOS pode disparar
     // `'_dependents.isEmpty'` com InheritedWidget.
