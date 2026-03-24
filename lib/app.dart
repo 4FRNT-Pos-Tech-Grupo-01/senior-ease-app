@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/services/app_settings_controller.dart';
+import 'package:senior_ease/services/auth_refresh_notifier.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 
 class SeniorEaseApp extends StatelessWidget {
-  const SeniorEaseApp({super.key, required this.settings});
+  const SeniorEaseApp({
+    super.key,
+    required this.settings,
+    required this.authRefreshNotifier,
+  });
 
   final AppSettingsController settings;
+  final AuthRefreshNotifier authRefreshNotifier;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +26,7 @@ class SeniorEaseApp extends StatelessWidget {
             title: 'Senior Ease',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.themeForSettings(settings),
-            routerConfig: AppRouter.router,
+            routerConfig: AppRouter.router(authRefreshNotifier),
             builder: (context, child) {
               return MediaQuery(
                 data: MediaQuery.of(context).copyWith(

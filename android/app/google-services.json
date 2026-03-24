@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "874274763327",
+    "project_id": "senior-app-2adee",
+    "storage_bucket": "senior-app-2adee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:874274763327:android:cfc3c0e03a3970ca25be8a",
+        "android_client_info": {
+          "package_name": "com.seniorease.senior_ease"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3zvXAZUAFP_LuMR7UFlnT-Hb7Ishv9w8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

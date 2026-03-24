@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:senior_ease/app.dart';
+import 'package:senior_ease/firebase_options.dart';
 import 'package:senior_ease/services/app_settings_controller.dart';
+import 'package:senior_ease/services/auth_refresh_notifier.dart';
 import 'package:senior_ease/services/notification_service.dart';
 import 'package:senior_ease/services/reminder_purge.dart';
 
@@ -58,9 +61,18 @@ void _startReminderMaintenance() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  final authRefreshNotifier = AuthRefreshNotifier();
   final settings = AppSettingsController();
   await settings.load();
   await NotificationService.instance.init();
   _startReminderMaintenance();
-  runApp(SeniorEaseApp(settings: settings));
+  runApp(
+    SeniorEaseApp(
+      settings: settings,
+      authRefreshNotifier: authRefreshNotifier,
+    ),
+  );
 }

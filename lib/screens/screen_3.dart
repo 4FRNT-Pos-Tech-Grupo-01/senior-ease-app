@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
@@ -149,7 +150,7 @@ class _Screen3State extends State<Screen3> {
                       return;
                     }
                     if (!context.mounted) return;
-                    context.go(AppRouter.screen1);
+                    await FirebaseAuth.instance.signOut();
                   },
                   textTheme: textTheme,
                 ),
@@ -200,41 +201,53 @@ class _Screen3State extends State<Screen3> {
   }
 
   Widget _buildProfileCard(TextTheme textTheme) {
-    return LargeCard(
-      padding: const EdgeInsets.all(24),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.lightBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(9999),
-              border: Border.all(color: AppColors.lightBlue, width: 2),
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: AppColors.lightBlue,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final user = snapshot.data ?? FirebaseAuth.instance.currentUser;
+        final email = user?.email ?? '—';
+        final title = user?.displayName?.trim().isNotEmpty == true
+            ? user!.displayName!.trim()
+            : 'Conta Senior Ease';
+        return LargeCard(
+          padding: const EdgeInsets.all(24),
+          child: Row(
             children: [
-              Text(
-                'Usuário Senior Ease',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 20,
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.lightBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(9999),
+                  border: Border.all(color: AppColors.lightBlue, width: 2),
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.lightBlue,
+                  size: 32,
                 ),
               ),
-              Text('usuario@email.com', style: textTheme.bodyMedium),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 20,
+                      ),
+                    ),
+                    Text(email, style: textTheme.bodyMedium),
+                  ],
+                ),
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/services/auth_error_messages.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 
 class Screen1 extends StatefulWidget {
@@ -16,6 +18,7 @@ class _Screen1State extends State<Screen1> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -29,6 +32,47 @@ class _Screen1State extends State<Screen1> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _signIn() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _submitting = true);
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      if (_rememberMe) {
+        _showSnack('Sessão mantida neste dispositivo.');
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnack(messageForFirebaseAuthException(e));
+    } catch (_) {
+      _showSnack('Não foi possível iniciar sessão. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showSnack('Indique um email válido no campo acima.');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      _showSnack('Enviámos instruções para o seu email.');
+    } on FirebaseAuthException catch (e) {
+      _showSnack(messageForFirebaseAuthException(e));
+    } catch (_) {
+      _showSnack('Não foi possível enviar o email. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -191,8 +235,8 @@ class _Screen1State extends State<Screen1> {
               validator: (value) {
                 final v = value ?? '';
                 if (v.isEmpty) return 'Insira a sua senha';
-                if (v.length < 4) {
-                  return 'A senha deve ter pelo menos 4 caracteres';
+                if (v.length < 6) {
+                  return 'A senha deve ter pelo menos 6 caracteres';
                 }
                 return null;
               },
@@ -266,9 +310,7 @@ class _Screen1State extends State<Screen1> {
         link: true,
         label: 'Esqueceu a senha?',
         child: TextButton(
-          onPressed: () {
-            _showSnack('Recuperação de senha em breve.');
-          },
+          onPressed: _submitting ? null : _sendPasswordReset,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.lightBlue,
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -292,23 +334,25 @@ class _Screen1State extends State<Screen1> {
       button: true,
       label: 'Login',
       child: ElevatedButton(
-        onPressed: () {
-          if (_formKey.currentState?.validate() ?? false) {
-            if (_rememberMe) {
-              _showSnack('Sessão será lembrada neste dispositivo.');
-            }
-            context.push(AppRouter.screen2);
-          }
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.login, color: AppColors.white, size: 28),
-            const SizedBox(width: 8),
-            Text('Login', style: textTheme.labelLarge),
-          ],
-        ),
+        onPressed: _submitting ? null : _signIn,
+        child: _submitting
+            ? const SizedBox(
+                height: 28,
+                width: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.white,
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.login, color: AppColors.white, size: 28),
+                  const SizedBox(width: 8),
+                  Text('Login', style: textTheme.labelLarge),
+                ],
+              ),
       ),
     );
   }
@@ -324,9 +368,7 @@ class _Screen1State extends State<Screen1> {
           link: true,
           label: 'Crie uma conta',
           child: TextButton(
-            onPressed: () {
-              _showSnack('Cadastro em breve.');
-            },
+            onPressed: _submitting ? null : () => context.push(AppRouter.register),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.lightBlue,
               padding: const EdgeInsets.symmetric(vertical: 12),
