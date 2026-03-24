@@ -20,7 +20,7 @@ lib/
 
 Com **sessão Firebase Auth**, lembretes, tarefas, etapas guiadas e histórico ficam em **Cloud Firestore** sob `users/{uid}/...` (cada utilizador só vê o que criou). As **notificações** dos lembretes continuam **locais** em **Android**, **iOS** e **macOS** (manifesto / Info.plist). Na **web** e em **Linux/Windows** desktop, a lista funciona sem notificação do sistema.
 
-- Primeira abertura: três lembretes de exemplo são criados automaticamente.
+- Os lembretes são **criados por ti** e guardados na tua conta (Firestore); não há lista de exemplo automática.
 - Botão **+**: novo lembrete (texto, data/hora, ícone).
 - **Apagar**: ícone do caixote no cartão.
 - **Após a hora do lembrete**, o cartão continua na lista durante **6 horas**; só depois é **removido automaticamente** (a app verifica a cada 2 s e ao voltar ao primeiro plano). Isto **não depende** de teres visto ou recebido a notificação — se a notificação falhar, ainda podes ver o lembrete na app nesse período. Podes apagar manualmente antes com o ícone do caixote.
@@ -58,29 +58,147 @@ Coloca a app em **segundo plano** ou bloqueia o ecrã antes da hora do teste.
 
 ## Requisitos
 
-- Flutter (versão estável)
-- Dart 3.x
+- [Flutter](https://docs.flutter.dev/get-started/install) (canal **stable**, SDK compatível com o `environment` do `pubspec.yaml`)
+- [Dart](https://dart.dev/get-dart) (incluído no Flutter)
+- Conta e projeto **Firebase** configurados para esta app (Auth, Firestore, ficheiros nativos — vê `docs/firebase-nuvem-configuracao.md`)
+- Para **login Google em Android**: `lib/config/google_oauth.dart` com o ID cliente Web e `google-services.json` atualizado (SHA-1 no Firebase)
 
-## Como executar
+## Executar em modo de desenvolvimento
+
+1. **Clonar o repositório** e entrar na pasta do projeto.
+
+2. **Instalar dependências**
+
+   ```bash
+   flutter pub get
+   ```
+
+3. **Verificar o ambiente** (opcional mas recomendado)
+
+   ```bash
+   flutter doctor
+   ```
+
+   Corrige o que o comando indicar (Xcode, Android SDK, licenças, etc.).
+
+4. **Ligar um dispositivo ou arrancar um emulador/simulador**
+
+   ```bash
+   flutter devices
+   ```
+
+   Escolhe o alvo com `-d`:
+
+   ```bash
+   flutter run -d chrome          # Web
+   flutter run -d macos           # macOS desktop
+   flutter run -d <device_id>     # telemóvel ou emulador listado
+   ```
+
+5. **Arrancar a app em modo debug** (padrão)
+
+   ```bash
+   flutter run
+   ```
+
+   - **Hot reload:** guardar ficheiros ou premir `r` no terminal.
+   - **Hot restart:** `R` (maiúsculo).
+   - **Sair:** `q`.
+
+6. **Modo profile ou release** (mais próximo do que o utilizador final vê, útil para notificações no iOS)
+
+   ```bash
+   flutter run --profile
+   flutter run --release
+   ```
+
+7. **Testes automatizados**
+
+   ```bash
+   flutter test
+   ```
+
+## Gerar builds (produção / instalação)
+
+Os comandos abaixo geram artefactos na pasta `build/` (exceto onde indicado). Ajusta **nome da app**, **versão** e **assinaturas** em `pubspec.yaml`, Xcode e Gradle conforme as lojas.
+
+### Android (APK — instalação direta)
+
+```bash
+flutter build apk --release
+```
+
+Ficheiro típico: `build/app/outputs/flutter-apk/app-release.apk`.
+
+### Android (App Bundle — Google Play)
+
+```bash
+flutter build appbundle --release
+```
+
+Ficheiro típico: `build/app/outputs/bundle/release/app-release.aab`.
+
+Configura **assinatura de release** em `android/app/build.gradle.kts` (ou via `key.properties`); o template do projeto pode ainda usar a chave de debug em release — altera antes de publicar.
+
+### iOS (sem arquivo Xcode interativo — IPA para CI ou export manual)
+
+```bash
+flutter build ipa --release
+```
+
+Ou abre `ios/Runner.xcworkspace` no Xcode, escolhe **Any iOS Device**, **Product → Archive** e segue o assistente para App Store Connect / Ad Hoc.
+
+Requisitos: Apple Developer, perfis de provisionamento e certificados corretos.
+
+### Web
+
+```bash
+flutter build web --release
+```
+
+Saída em `build/web/` — serve com qualquer servidor estático ou hospeda em Firebase Hosting / outro hosting.
+
+### macOS
+
+```bash
+flutter build macos --release
+```
+
+### Windows
+
+```bash
+flutter build windows --release
+```
+
+### Linux
+
+```bash
+flutter build linux --release
+```
+
+### Obter só os pacotes (CI)
 
 ```bash
 flutter pub get
-flutter run
+dart analyze
+flutter test
 ```
 
-Para listar dispositivos disponíveis:
-
-```bash
-flutter devices
-```
+Documentação oficial: [Build and release an app](https://docs.flutter.dev/deployment).
 
 ## Design
 
 Design no Figma: [Senior Ease](https://www.figma.com/design/pvTVSqETPP9BAlnMbaAgI0/Senior-Ease)
 
+## Documentação adicional
+
+- Firebase, Auth, Firestore e login Google: [`docs/firebase-nuvem-configuracao.md`](docs/firebase-nuvem-configuracao.md)
+
 ## Tecnologias
 
-- Flutter
-- Dart
+- Flutter / Dart
 - Material 3
 - GoRouter
+- Firebase (Core, Auth, Firestore)
+- Google Sign-In
+- Notificações locais (`flutter_local_notifications`)
