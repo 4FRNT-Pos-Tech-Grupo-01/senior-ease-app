@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/services/auth_error_messages.dart';
+import 'package:senior_ease/services/google_auth_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
+import 'package:senior_ease/widgets/google_sign_in_button.dart';
 
 class Screen1 extends StatefulWidget {
   const Screen1({super.key});
@@ -19,6 +21,7 @@ class _Screen1State extends State<Screen1> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _submitting = false;
+  bool _googleLoading = false;
 
   @override
   void dispose() {
@@ -52,6 +55,24 @@ class _Screen1State extends State<Screen1> {
       _showSnack('Não foi possível iniciar sessão. Tente novamente.');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_submitting || _googleLoading) return;
+    setState(() => _googleLoading = true);
+    try {
+      final cred = await GoogleAuthService.instance.signInWithGoogle();
+      if (!mounted) return;
+      if (cred != null && _rememberMe) {
+        _showSnack('Sessão iniciada com Google.');
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnack(messageForFirebaseAuthException(e));
+    } catch (_) {
+      _showSnack('Não foi possível iniciar sessão com Google.');
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
     }
   }
 
@@ -185,6 +206,14 @@ class _Screen1State extends State<Screen1> {
             const SizedBox(height: 16),
             _buildLoginButton(textTheme),
             const SizedBox(height: 16),
+            _buildGoogleDivider(theme),
+            const SizedBox(height: 16),
+            GoogleSignInButton(
+              loading: _googleLoading,
+              enabled: !_submitting,
+              onPressed: _signInWithGoogle,
+            ),
+            const SizedBox(height: 16),
             _buildRegisterPrompt(textTheme),
           ],
         ),
@@ -303,6 +332,25 @@ class _Screen1State extends State<Screen1> {
     );
   }
 
+  Widget _buildGoogleDivider(ThemeData theme) {
+    final outline = theme.colorScheme.outline;
+    return Row(
+      children: [
+        Expanded(child: Divider(color: outline, thickness: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'ou',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: outline, thickness: 1)),
+      ],
+    );
+  }
+
   Widget _buildForgotPasswordLink(TextTheme textTheme) {
     return Align(
       alignment: Alignment.centerRight,
@@ -310,7 +358,7 @@ class _Screen1State extends State<Screen1> {
         link: true,
         label: 'Esqueceu a senha?',
         child: TextButton(
-          onPressed: _submitting ? null : _sendPasswordReset,
+          onPressed: (_submitting || _googleLoading) ? null : _sendPasswordReset,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.lightBlue,
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -334,7 +382,7 @@ class _Screen1State extends State<Screen1> {
       button: true,
       label: 'Login',
       child: ElevatedButton(
-        onPressed: _submitting ? null : _signIn,
+        onPressed: (_submitting || _googleLoading) ? null : _signIn,
         child: _submitting
             ? const SizedBox(
                 height: 28,
@@ -368,7 +416,9 @@ class _Screen1State extends State<Screen1> {
           link: true,
           label: 'Crie uma conta',
           child: TextButton(
-            onPressed: _submitting ? null : () => context.push(AppRouter.register),
+            onPressed: (_submitting || _googleLoading)
+                ? null
+                : () => context.push(AppRouter.register),
             style: TextButton.styleFrom(
               foregroundColor: AppColors.lightBlue,
               padding: const EdgeInsets.symmetric(vertical: 12),

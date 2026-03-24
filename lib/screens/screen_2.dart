@@ -10,6 +10,7 @@ import 'package:senior_ease/models/activity_history_entry.dart';
 import 'package:senior_ease/models/guided_step_item.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/models/user_task_item.dart';
+import 'package:senior_ease/services/google_auth_service.dart';
 import 'package:senior_ease/services/notification_service.dart';
 import 'package:senior_ease/services/user_cloud_data_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
@@ -661,6 +662,7 @@ class _Screen2State extends State<Screen2> {
                           return;
                         }
                         if (!context.mounted) return;
+                        await GoogleAuthService.instance.signOutGoogle();
                         await FirebaseAuth.instance.signOut();
                       },
                       borderRadius: BorderRadius.circular(12),

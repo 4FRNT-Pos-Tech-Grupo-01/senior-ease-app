@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/services/auth_error_messages.dart';
+import 'package:senior_ease/services/google_auth_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
+import 'package:senior_ease/widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _submitting = false;
+  bool _googleLoading = false;
 
   @override
   void dispose() {
@@ -52,6 +55,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showSnack('Não foi possível criar a conta. Tente novamente.');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_submitting || _googleLoading) return;
+    setState(() => _googleLoading = true);
+    try {
+      await GoogleAuthService.instance.signInWithGoogle();
+      if (!mounted) return;
+    } on FirebaseAuthException catch (e) {
+      _showSnack(messageForFirebaseAuthException(e));
+    } catch (_) {
+      _showSnack('Não foi possível iniciar sessão com Google.');
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
     }
   }
 
@@ -224,7 +242,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             button: true,
                             label: 'Registar',
                             child: ElevatedButton(
-                              onPressed: _submitting ? null : _submit,
+                              onPressed: (_submitting || _googleLoading)
+                                  ? null
+                                  : _submit,
                               child: _submitting
                                   ? const SizedBox(
                                       height: 28,
@@ -252,13 +272,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                             ),
                           ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Divider(
+                                  color: theme.colorScheme.outline,
+                                  thickness: 1,
+                                ),
+                              ),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'ou',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Divider(
+                                  color: theme.colorScheme.outline,
+                                  thickness: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          GoogleSignInButton(
+                            loading: _googleLoading,
+                            enabled: !_submitting,
+                            onPressed: _signInWithGoogle,
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   TextButton(
-                    onPressed: _submitting
+                    onPressed: (_submitting || _googleLoading)
                         ? null
                         : () => context.go(AppRouter.screen1),
                     child: Text(

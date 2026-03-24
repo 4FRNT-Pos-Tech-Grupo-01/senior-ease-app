@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/app_settings_scope.dart';
+import 'package:senior_ease/services/google_auth_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
@@ -150,6 +151,7 @@ class _Screen3State extends State<Screen3> {
                       return;
                     }
                     if (!context.mounted) return;
+                    await GoogleAuthService.instance.signOutGoogle();
                     await FirebaseAuth.instance.signOut();
                   },
                   textTheme: textTheme,

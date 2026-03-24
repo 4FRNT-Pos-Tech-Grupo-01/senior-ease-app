@@ -19,6 +19,10 @@ String messageForFirebaseAuthException(FirebaseAuthException e) {
       return 'Sem ligação. Verifique a internet.';
     case 'too-many-requests':
       return 'Demasiadas tentativas. Tente mais tarde.';
+    case 'account-exists-with-different-credential':
+      return 'Já existe conta com este email (outro método de login). Inicie sessão com email/senha ou use o mesmo método de antes.';
+    case 'missing-google-id-token':
+      return 'Login Google incompleto: configure o ID cliente Web em google_oauth.dart e o ficheiro google-services.json (SHA-1 no Firebase).';
     default:
       return e.message?.isNotEmpty == true
           ? e.message!

@@ -18,7 +18,7 @@ lib/
 
 ## Lembretes (notificações locais)
 
-Na **Screen 2 (início)**, a secção **Lembretes** guarda dados em `shared_preferences` e agenda **notificações locais** em **Android**, **iOS** e **macOS** (com permissões no manifesto / Info.plist). Na **web** e em **Linux/Windows** desktop, a lista funciona sem notificação do sistema.
+Com **sessão Firebase Auth**, lembretes, tarefas, etapas guiadas e histórico ficam em **Cloud Firestore** sob `users/{uid}/...` (cada utilizador só vê o que criou). As **notificações** dos lembretes continuam **locais** em **Android**, **iOS** e **macOS** (manifesto / Info.plist). Na **web** e em **Linux/Windows** desktop, a lista funciona sem notificação do sistema.
 
 - Primeira abertura: três lembretes de exemplo são criados automaticamente.
 - Botão **+**: novo lembrete (texto, data/hora, ícone).
