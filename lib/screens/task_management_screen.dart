@@ -1,17 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
-import 'package:senior_ease/services/activity_history_storage.dart';
+import 'package:senior_ease/models/user_task_item.dart';
+import 'package:senior_ease/services/user_cloud_data_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
-
-/// Tarefa editável na lista de gerenciamento (estado local).
-class _ManagedTask {
-  _ManagedTask({required this.id, required this.title});
-
-  final String id;
-  String title;
-}
 
 /// Tela de gerenciamento: pendentes, concluídas, reordenar, editar, excluir, nova tarefa.
 class TaskManagementScreen extends StatefulWidget {
@@ -22,20 +16,41 @@ class TaskManagementScreen extends StatefulWidget {
 }
 
 class _TaskManagementScreenState extends State<TaskManagementScreen> {
-  late List<_ManagedTask> _pending;
-  late List<_ManagedTask> _completed;
+  List<UserTaskItem> _pending = [];
+  List<UserTaskItem> _completed = [];
 
   @override
   void initState() {
     super.initState();
-    _pending = [
-      _ManagedTask(id: 't1', title: 'Tomar remédio da manhã'),
-      _ManagedTask(id: 't2', title: 'Caminhar por 20 minutos'),
-      _ManagedTask(id: 't4', title: 'Ligar para a família'),
-    ];
-    _completed = [
-      _ManagedTask(id: 't3', title: 'Beber 2 copos de água'),
-    ];
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (!mounted) return;
+    if (uid == null) return;
+    final r = await UserCloudDataService.instance.loadTaskListsOnce(uid);
+    if (!mounted) return;
+    setState(() {
+      _pending = r.pending;
+      _completed = r.completed;
+    });
+  }
+
+  Future<void> _persistTasks() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await UserCloudDataService.instance.saveTaskLists(
+      uid,
+      pending: _pending,
+      completed: _completed,
+    );
+  }
+
+  Future<void> _appendHistory(String title) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await UserCloudDataService.instance.appendActivityHistory(uid, title);
   }
 
   int get _totalCount => _pending.length + _completed.length;
@@ -95,16 +110,17 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     if (t.isEmpty) return;
     setState(() {
       _pending.add(
-        _ManagedTask(
+        UserTaskItem(
           id: 'n_${DateTime.now().microsecondsSinceEpoch}',
           title: t,
         ),
       );
     });
+    await _persistTasks();
     _showSnack('Tarefa adicionada.');
   }
 
-  Future<void> _editTask(_ManagedTask task) async {
+  Future<void> _editTask(UserTaskItem task) async {
     final ctrl = TextEditingController(text: task.title);
     final saved = await showDialog<bool>(
       context: context,
@@ -134,11 +150,21 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     if (saved != true || !mounted) return;
     final next = ctrl.text.trim();
     if (next.isEmpty) return;
-    setState(() => task.title = next);
+    setState(() {
+      final pi = _pending.indexWhere((e) => e.id == task.id);
+      if (pi >= 0) {
+        _pending[pi] = _pending[pi].copyWith(title: next);
+      }
+      final ci = _completed.indexWhere((e) => e.id == task.id);
+      if (ci >= 0) {
+        _completed[ci] = _completed[ci].copyWith(title: next);
+      }
+    });
+    await _persistTasks();
     _showSnack('Tarefa atualizada.');
   }
 
-  Future<void> _confirmDelete(_ManagedTask task, bool fromCompleted) async {
+  Future<void> _confirmDelete(UserTaskItem task, bool fromCompleted) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -167,27 +193,26 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
         _pending.removeWhere((e) => e.id == task.id);
       }
     });
-    ActivityHistoryStorage.instance.append(
-      'Tarefa apagada (gestão): ${task.title}',
-    );
+    await _appendHistory('Tarefa apagada (gestão): ${task.title}');
+    await _persistTasks();
     _showSnack('Tarefa removida.');
   }
 
-  void _toggleToCompleted(_ManagedTask task) {
+  Future<void> _toggleToCompleted(UserTaskItem task) async {
     setState(() {
       _pending.removeWhere((e) => e.id == task.id);
       _completed.add(task);
     });
-    ActivityHistoryStorage.instance.append(
-      'Tarefa concluída (gestão): ${task.title}',
-    );
+    await _appendHistory('Tarefa concluída (gestão): ${task.title}');
+    await _persistTasks();
   }
 
-  void _toggleToPending(_ManagedTask task) {
+  Future<void> _toggleToPending(UserTaskItem task) async {
     setState(() {
       _completed.removeWhere((e) => e.id == task.id);
       _pending.add(task);
     });
+    await _persistTasks();
   }
 
   @override
@@ -339,6 +364,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                   final item = _pending.removeAt(oldIndex);
                   _pending.insert(newIndex, item);
                 });
+                _persistTasks();
               },
               itemCount: _pending.length,
               itemBuilder: (context, index) {
@@ -424,7 +450,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   Widget _pendingRow({
     required Key key,
     required TextTheme textTheme,
-    required _ManagedTask task,
+    required UserTaskItem task,
     required int index,
   }) {
     final cs = Theme.of(context).colorScheme;
@@ -507,7 +533,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     );
   }
 
-  Widget _completedRow(TextTheme textTheme, _ManagedTask task) {
+  Widget _completedRow(TextTheme textTheme, UserTaskItem task) {
     final cs = Theme.of(context).colorScheme;
     final errorColor = cs.error;
 

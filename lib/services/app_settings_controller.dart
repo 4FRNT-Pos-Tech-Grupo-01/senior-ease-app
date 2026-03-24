@@ -1,8 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/services/notification_service.dart';
-import 'package:senior_ease/services/reminders_storage.dart';
+import 'package:senior_ease/services/user_cloud_data_service.dart';
 
 /// Preferências persistidas (acessibilidade, navegação, notificações).
 final class AppSettingsController extends ChangeNotifier {
@@ -88,7 +89,9 @@ final class AppSettingsController extends ChangeNotifier {
   }
 
   Future<void> _resyncNotificationsFromStorage() async {
-    var list = await RemindersStorage.instance.load();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    var list = await UserCloudDataService.instance.loadRemindersOnce(uid);
     list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     await NotificationService.instance.syncReminders(
       list,

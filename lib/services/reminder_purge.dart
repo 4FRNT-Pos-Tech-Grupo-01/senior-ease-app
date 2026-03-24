@@ -1,12 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/services/app_settings_controller.dart';
-import 'package:senior_ease/services/reminders_storage.dart';
+import 'package:senior_ease/services/user_cloud_data_service.dart';
 
 /// Remove lembretes cuja hora já passou há pelo menos [graceAfterScheduled].
 ///
 /// **Importante:** isto é independente da notificação ter sido entregue ou vista.
 /// Se a margem for curta, o cartão desaparece logo após a hora mesmo sem alerta
 /// do sistema — por isso usamos várias horas para ainda ver o lembrete na app.
+///
+/// Dados por utilizador: Firestore `users/{uid}/reminders`.
 final class ReminderPurge {
   ReminderPurge._();
 
@@ -29,19 +32,19 @@ final class ReminderPurge {
   }
 
   static Future<bool> _purgeExpiredBody() async {
-    final storage = RemindersStorage.instance;
-    final list = await storage.load();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return false;
+
+    final svc = UserCloudDataService.instance;
+    final list = await svc.loadRemindersOnce(uid);
     if (list.isEmpty) return false;
 
     final now = DateTime.now();
     final kept = list.where((r) => _shouldKeep(r, now)).toList();
     if (kept.length == list.length) return false;
 
-    await storage.save(kept);
+    await svc.replaceAllReminders(uid, kept);
     await AppSettingsController.syncRemindersWithPersistedFlags(kept);
-    // A UI dos lembretes (Screen2) sincroniza lendo o armazenamento num timer
-    // local — evita ValueNotifier global que no iOS pode disparar
-    // `'_dependents.isEmpty'` com InheritedWidget.
     return true;
   }
 }

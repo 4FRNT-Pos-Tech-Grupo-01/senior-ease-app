@@ -1,16 +1,17 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:senior_ease/app_router.dart';
 import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/models/activity_history_entry.dart';
+import 'package:senior_ease/models/guided_step_item.dart';
 import 'package:senior_ease/models/reminder.dart';
-import 'package:senior_ease/services/activity_history_storage.dart';
+import 'package:senior_ease/models/user_task_item.dart';
 import 'package:senior_ease/services/notification_service.dart';
-import 'package:senior_ease/services/reminders_storage.dart';
+import 'package:senior_ease/services/user_cloud_data_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
@@ -23,40 +24,36 @@ class Screen2 extends StatefulWidget {
 }
 
 class _Screen2State extends State<Screen2> {
-  static const List<String> _taskLabels = [
-    'Tomar remédio da manhã',
-    'Caminhar por 20 minutos',
-    'Beber 2 copos de água',
-    'Ligar para a família',
-  ];
+  List<UserTaskItem> _taskItems = [];
 
-  /// Tarefas concluídas (mesmo estado inicial da UI estática).
-  final List<bool> _tasksDone = [false, false, true, false];
-
-  /// Etapas guiadas: [passo1, passo2, passo3].
-  final List<bool> _guidedDone = [true, false, false];
+  /// Etapas guiadas definidas pelo utilizador (Firestore: `home/guided`).
+  List<GuidedStepItem> _guidedSteps = [];
 
   List<Reminder> _reminders = [];
   bool _remindersLoaded = false;
   List<ActivityHistoryEntry> _history = [];
   bool _historyLoaded = false;
-  Timer? _remindersStorageSyncTimer;
 
-  static const List<String> _guidedStepDescriptions = [
-    'Pegue o remédio na caixa azul',
-    'Tome com um copo cheio de água',
-    'Anote no caderno que já tomou',
-  ];
+  StreamSubscription<List<Reminder>>? _remindersSub;
+  StreamSubscription<List<UserTaskItem>>? _tasksSub;
+  StreamSubscription<List<GuidedStepItem>>? _guidedSub;
+  StreamSubscription<List<ActivityHistoryEntry>>? _historySub;
 
-  int get _completedTaskCount => _tasksDone.where((e) => e).length;
+  static const int _maxGuidedSteps = 30;
 
-  double get _taskProgress =>
-      _tasksDone.isEmpty ? 0 : _completedTaskCount / _tasksDone.length;
+  int get _completedTaskCount =>
+      _taskItems.where((e) => e.completed).length;
 
-  int get _guidedCompleted => _guidedDone.where((e) => e).length;
+  double get _taskProgress => _taskItems.isEmpty
+      ? 0
+      : _completedTaskCount / _taskItems.length;
 
-  double get _guidedProgress =>
-      _guidedDone.isEmpty ? 0 : _guidedCompleted / _guidedDone.length;
+  int get _guidedCompleted =>
+      _guidedSteps.where((s) => s.completed).length;
+
+  double get _guidedProgress => _guidedSteps.isEmpty
+      ? 0
+      : _guidedCompleted / _guidedSteps.length;
 
   void _showSnack(String message) {
     if (!mounted) return;
@@ -65,21 +62,10 @@ class _Screen2State extends State<Screen2> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _bootstrapHistory() async {
-    final list = await ActivityHistoryStorage.instance.load();
-    if (!mounted) return;
-    setState(() {
-      _history = list;
-      _historyLoaded = true;
-    });
-  }
-
   Future<void> _recordActivity(String title) async {
-    await ActivityHistoryStorage.instance.append(title);
-    if (!mounted) return;
-    final list = await ActivityHistoryStorage.instance.load();
-    if (!mounted) return;
-    setState(() => _history = list);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await UserCloudDataService.instance.appendActivityHistory(uid, title);
   }
 
   String _formatHistoryWhen(DateTime d) {
@@ -105,10 +91,11 @@ class _Screen2State extends State<Screen2> {
   }
 
   Future<void> _toggleTask(int index) async {
-    if (!mounted) return;
+    if (!mounted || index < 0 || index >= _taskItems.length) return;
     final settings = AppSettingsScope.of(context);
-    final label = _taskLabels[index];
-    final willComplete = !_tasksDone[index];
+    final item = _taskItems[index];
+    final label = item.title;
+    final willComplete = !item.completed;
     if (!await confirmBeforeImportantAction(
       context,
       settings: settings,
@@ -119,7 +106,24 @@ class _Screen2State extends State<Screen2> {
       return;
     }
     if (!mounted) return;
-    setState(() => _tasksDone[index] = !_tasksDone[index]);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final next = List<UserTaskItem>.from(_taskItems);
+    next[index] = item.copyWith(completed: !item.completed);
+    final pending = <UserTaskItem>[];
+    final completed = <UserTaskItem>[];
+    for (final t in next) {
+      if (t.completed) {
+        completed.add(t);
+      } else {
+        pending.add(t);
+      }
+    }
+    await UserCloudDataService.instance.saveTaskLists(
+      uid,
+      pending: pending,
+      completed: completed,
+    );
     if (willComplete) {
       _playCompletionFeedback();
       await _recordActivity('Tarefa concluída: $label');
@@ -128,159 +132,182 @@ class _Screen2State extends State<Screen2> {
 
   Future<void> _onManageTasks() async {
     await context.pushNamed('task_management');
-    if (mounted) await _bootstrapHistory();
   }
 
   Future<void> _completeNextGuidedStep() async {
     if (!mounted) return;
     final settings = AppSettingsScope.of(context);
-    final i = _guidedDone.indexWhere((d) => !d);
+    final i = _guidedSteps.indexWhere((s) => !s.completed);
     if (i < 0) return;
+    final step = _guidedSteps[i];
     if (!await confirmBeforeImportantAction(
       context,
       settings: settings,
       title: 'Concluir passo ${i + 1}?',
-      message: 'Confirma que já realizou esta etapa.',
+      message: step.title,
       confirmLabel: 'Concluir',
     )) {
       return;
     }
     if (!mounted) return;
-    setState(() => _guidedDone[i] = true);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final next = List<GuidedStepItem>.from(_guidedSteps);
+    next[i] = next[i].copyWith(completed: true);
+    await UserCloudDataService.instance.saveGuidedSteps(uid, next);
     _playCompletionFeedback();
     _showSnack('Passo ${i + 1} concluído!');
-    final desc = i < _guidedStepDescriptions.length
-        ? _guidedStepDescriptions[i]
-        : 'Passo ${i + 1}';
-    await _recordActivity('Etapa guiada: $desc');
+    await _recordActivity('Etapa guiada: ${step.title}');
+  }
+
+  Future<void> _showAddGuidedStepDialog() async {
+    final ctrl = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Nova etapa guiada'),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Descrição do passo',
+              hintText: 'Ex.: Abrir a caixa dos comprimidos',
+            ),
+            maxLength: 200,
+            textCapitalization: TextCapitalization.sentences,
+            onSubmitted: (_) {
+              if (ctrl.text.trim().isNotEmpty) {
+                Navigator.pop(ctx, true);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (ctrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('Adicionar'),
+            ),
+          ],
+        );
+      },
+    );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
+    if (saved != true || !mounted || text.isEmpty) return;
+    if (_guidedSteps.length >= _maxGuidedSteps) {
+      _showSnack('Limite de $_maxGuidedSteps etapas guiadas.');
+      return;
+    }
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    var maxOrder = -1;
+    for (final s in _guidedSteps) {
+      if (s.order > maxOrder) maxOrder = s.order;
+    }
+    final newStep = GuidedStepItem(
+      id: 'g_${DateTime.now().microsecondsSinceEpoch}',
+      title: text,
+      completed: false,
+      order: maxOrder + 1,
+    );
+    await UserCloudDataService.instance.saveGuidedSteps(
+      uid,
+      [..._guidedSteps, newStep],
+    );
+    _showSnack('Etapa adicionada.');
+    await _recordActivity('Etapa guiada criada: $text');
+  }
+
+  Future<void> _confirmDeleteGuidedStep(GuidedStepItem step) async {
+    if (!mounted) return;
+    final settings = AppSettingsScope.of(context);
+    if (!await confirmBeforeImportantAction(
+      context,
+      settings: settings,
+      title: 'Apagar esta etapa?',
+      message: '“${step.title}” será removida da lista.',
+      confirmLabel: 'Apagar',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final next = _guidedSteps.where((s) => s.id != step.id).toList();
+    await UserCloudDataService.instance.saveGuidedSteps(uid, next);
+    if (!mounted) return;
+    _showSnack('Etapa removida.');
+    await _recordActivity('Etapa guiada apagada: ${step.title}');
+  }
+
+  void _subscribeUserStreams() {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    final uid = u.uid;
+    final svc = UserCloudDataService.instance;
+
+    _remindersSub?.cancel();
+    _tasksSub?.cancel();
+    _guidedSub?.cancel();
+    _historySub?.cancel();
+
+    _remindersSub = svc.remindersStream(uid).listen((list) {
+      if (!mounted) return;
+      scheduleMicrotask(() async {
+        if (!mounted) return;
+        final s = AppSettingsScope.of(context);
+        await NotificationService.instance.syncReminders(
+          list,
+          notificationsEnabled: s.notificationsEnabled,
+          playSound: s.soundAlerts,
+        );
+        if (mounted) {
+          setState(() {
+            _reminders = list;
+            _remindersLoaded = true;
+          });
+        }
+      });
+    });
+
+    _tasksSub = svc.taskItemsStream(uid).listen((items) {
+      if (mounted) setState(() => _taskItems = items);
+    });
+
+    _guidedSub = svc.guidedStepsStream(uid).listen((steps) {
+      if (mounted) setState(() => _guidedSteps = steps);
+    });
+
+    _historySub = svc.activityHistoryStream(uid).listen((h) {
+      if (mounted) {
+        setState(() {
+          _history = h;
+          _historyLoaded = true;
+        });
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    _bootstrapReminders();
-    _bootstrapHistory();
-    _remindersStorageSyncTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => _syncRemindersWithStorageIfChanged(),
-    );
+    _subscribeUserStreams();
   }
 
   @override
   void dispose() {
-    _remindersStorageSyncTimer?.cancel();
+    _remindersSub?.cancel();
+    _tasksSub?.cancel();
+    _guidedSub?.cancel();
+    _historySub?.cancel();
     super.dispose();
-  }
-
-  bool _sameReminderLists(List<Reminder> a, List<Reminder> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final x = a[i];
-      final y = b[i];
-      if (x.id != y.id ||
-          x.title != y.title ||
-          x.scheduledAt != y.scheduledAt ||
-          x.notificationId != y.notificationId ||
-          x.iconIndex != y.iconIndex) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /// Alinha `_reminders` com [SharedPreferences] (ex.: após purga automática).
-  Future<void> _syncRemindersWithStorageIfChanged() async {
-    if (!mounted || !_remindersLoaded) return;
-    final list = await RemindersStorage.instance.load();
-    list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    if (!mounted) return;
-    if (_sameReminderLists(_reminders, list)) return;
-    // Nunca atualizar árvore durante layout / desativação de InheritedWidgets
-    // (iOS: assert `_dependents.isEmpty` em debug).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      setState(() => _reminders = list);
-    });
-  }
-
-  Future<void> _bootstrapReminders() async {
-    final storage = RemindersStorage.instance;
-    var list = await storage.load();
-    if (list.isEmpty) {
-      list = await _createDefaultReminders();
-      await storage.save(list);
-    }
-    list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!context.mounted) return;
-      final s = AppSettingsScope.of(context);
-      await NotificationService.instance.syncReminders(
-        list,
-        notificationsEnabled: s.notificationsEnabled,
-        playSound: s.soundAlerts,
-      );
-      if (!context.mounted) return;
-      setState(() {
-        _reminders = list;
-        _remindersLoaded = true;
-      });
-    });
-  }
-
-  Future<List<Reminder>> _createDefaultReminders() async {
-    final storage = RemindersStorage.instance;
-    final now = DateTime.now();
-    final tomorrow = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).add(const Duration(days: 1));
-
-    DateTime atDay(DateTime day, int h, int m) =>
-        DateTime(day.year, day.month, day.day, h, m);
-
-    DateTime nextWallClock(int h, int m) {
-      var d = DateTime(now.year, now.month, now.day, h, m);
-      if (!d.isAfter(now)) d = d.add(const Duration(days: 1));
-      return d;
-    }
-
-    final stamp = now.microsecondsSinceEpoch;
-    return [
-      Reminder(
-        id: 'default_${stamp}_1',
-        title: 'Consulta médica',
-        scheduledAt: atDay(tomorrow, 14, 0),
-        notificationId: await storage.takeNextNotificationId(),
-        iconIndex: 0,
-      ),
-      Reminder(
-        id: 'default_${stamp}_2',
-        title: 'Tomar remédio',
-        scheduledAt: nextWallClock(20, 0),
-        notificationId: await storage.takeNextNotificationId(),
-        iconIndex: 1,
-      ),
-      Reminder(
-        id: 'default_${stamp}_3',
-        title: 'Reunião familiar',
-        scheduledAt: atDay(tomorrow.add(const Duration(days: 2)), 10, 0),
-        notificationId: await storage.takeNextNotificationId(),
-        iconIndex: 2,
-      ),
-    ];
-  }
-
-  Future<void> _persistRemindersAndSync() async {
-    await RemindersStorage.instance.save(_reminders);
-    if (!mounted) return;
-    final s = AppSettingsScope.of(context);
-    await NotificationService.instance.syncReminders(
-      _reminders,
-      notificationsEnabled: s.notificationsEnabled,
-      playSound: s.soundAlerts,
-    );
   }
 
   IconData _reminderIconData(int index) {
@@ -317,8 +344,9 @@ class _Screen2State extends State<Screen2> {
       ),
     );
     if (ok != true || !mounted) return;
-    setState(() => _reminders.removeWhere((x) => x.id == r.id));
-    await _persistRemindersAndSync();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await UserCloudDataService.instance.deleteReminder(uid, r.id);
     await _recordActivity('Lembrete removido: ${r.title}');
     _showSnack('Lembrete removido.');
   }
@@ -457,20 +485,19 @@ class _Screen2State extends State<Screen2> {
       return;
     }
 
-    final storage = RemindersStorage.instance;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final notifId =
+        await UserCloudDataService.instance.takeNextNotificationId(uid);
     final r = Reminder(
       id: 'r_${DateTime.now().microsecondsSinceEpoch}',
       title: text,
       scheduledAt: chosen,
-      notificationId: await storage.takeNextNotificationId(),
+      notificationId: notifId,
       iconIndex: iconIdx,
     );
 
-    setState(() {
-      _reminders = [..._reminders, r]
-        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-    });
-    await _persistRemindersAndSync();
+    await UserCloudDataService.instance.upsertReminder(uid, r);
     await _recordActivity('Lembrete criado: $text');
     if (await NotificationService.instance.isDarwinNotificationsBlocked()) {
       _showSnack(
@@ -634,7 +661,7 @@ class _Screen2State extends State<Screen2> {
                           return;
                         }
                         if (!context.mounted) return;
-                        context.go(AppRouter.screen1);
+                        await FirebaseAuth.instance.signOut();
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -673,7 +700,7 @@ class _Screen2State extends State<Screen2> {
   }
 
   Widget _buildProgressCard(TextTheme textTheme) {
-    final total = _tasksDone.length;
+    final total = _taskItems.length;
     final done = _completedTaskCount;
     final pct = (_taskProgress * 100).round();
 
@@ -748,8 +775,22 @@ class _Screen2State extends State<Screen2> {
             ],
           ),
           const SizedBox(height: 16),
-          for (var i = 0; i < _taskLabels.length; i++)
-            _taskRow(textTheme, i, _taskLabels[i], _tasksDone[i]),
+          if (_taskItems.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Ainda sem tarefas. Toque em Gerenciar para criar as suas.',
+                style: textTheme.bodyLarge,
+              ),
+            )
+          else
+            for (var i = 0; i < _taskItems.length; i++)
+              _taskRow(
+                textTheme,
+                i,
+                _taskItems[i].title,
+                _taskItems[i].completed,
+              ),
           const SizedBox(height: 16),
           Semantics(
             button: true,
@@ -869,10 +910,10 @@ class _Screen2State extends State<Screen2> {
 
   /// Passo atual a destacar: primeiro ainda não concluído (índice 0 = passo 1).
   bool _isGuidedStepActive(int stepIndex) {
-    if (stepIndex < 0 || stepIndex >= _guidedDone.length) return false;
-    if (_guidedDone[stepIndex]) return false;
+    if (stepIndex < 0 || stepIndex >= _guidedSteps.length) return false;
+    if (_guidedSteps[stepIndex].completed) return false;
     for (var j = 0; j < stepIndex; j++) {
-      if (!_guidedDone[j]) return false;
+      if (!_guidedSteps[j].completed) return false;
     }
     return true;
   }
@@ -881,11 +922,16 @@ class _Screen2State extends State<Screen2> {
   static const Color _guidedDoneBannerBg = Color(0xFFF1F8F3);
   static const Color _guidedDoneBannerBorder = Color(0xFFA8D5BA);
   Widget _buildGuidedStepsCard(TextTheme textTheme) {
-    final nextIdx = _guidedDone.indexWhere((d) => !d);
-    final allDone = nextIdx < 0;
-    final buttonLabel = allDone
-        ? 'Todas as etapas concluídas'
-        : 'Concluir "Passo ${nextIdx + 1}"';
+    final steps = _guidedSteps;
+    final nextIdx = steps.indexWhere((s) => !s.completed);
+    final allDone = steps.isNotEmpty && nextIdx < 0;
+    String shortTitle(String t) =>
+        t.length > 42 ? '${t.substring(0, 42)}…' : t;
+    final completeLabel = steps.isEmpty
+        ? 'Adicione etapas com o botão +'
+        : (allDone
+            ? 'Todas as etapas concluídas'
+            : 'Concluir: ${shortTitle(steps[nextIdx].title)}');
 
     return LargeCard(
       semanticLabel: 'Etapas Guiadas',
@@ -900,54 +946,68 @@ class _Screen2State extends State<Screen2> {
                 size: 24,
               ),
               const SizedBox(width: 8),
-              Text('Etapas Guiadas', style: textTheme.headlineMedium),
+              Expanded(
+                child: Text('Etapas Guiadas', style: textTheme.headlineMedium),
+              ),
+              Semantics(
+                label: 'Cadastrar nova etapa guiada',
+                button: true,
+                child: IconButton(
+                  onPressed: _showAddGuidedStepDialog,
+                  icon: const Icon(Icons.add_circle_outline),
+                  color: AppColors.lightBlue,
+                  tooltip: 'Nova etapa guiada',
+                  iconSize: 32,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(9999),
-            child: LinearProgressIndicator(
-              value: _guidedProgress.clamp(0.0, 1.0),
-              backgroundColor: AppColors.linkWater,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.lightBlue,
+          if (steps.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Ainda não tem etapas. Toque em + para descrever cada passo '
+                '(por exemplo: preparar água, tomar o comprimido).',
+                style: textTheme.bodyMedium?.copyWith(fontSize: 16),
               ),
-              minHeight: 12,
+            )
+          else ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9999),
+              child: LinearProgressIndicator(
+                value: _guidedProgress.clamp(0.0, 1.0),
+                backgroundColor: AppColors.linkWater,
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.lightBlue,
+                ),
+                minHeight: 12,
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            for (var i = 0; i < steps.length; i++)
+              _guidedStepRow(
+                textTheme,
+                displayNumber: i + 1,
+                step: steps[i],
+                isActive: _isGuidedStepActive(i),
+              ),
+          ],
           const SizedBox(height: 16),
-          _stepRow(
-            textTheme,
-            1,
-            'Pegue o remédio na caixa azul',
-            _isGuidedStepActive(0),
-            _guidedDone[0],
-          ),
-          _stepRow(
-            textTheme,
-            2,
-            'Tome com um copo cheio de água',
-            _isGuidedStepActive(1),
-            _guidedDone[1],
-          ),
-          _stepRow(
-            textTheme,
-            3,
-            'Anote no caderno que já tomou',
-            _isGuidedStepActive(2),
-            _guidedDone[2],
-          ),
-          const SizedBox(height: 16),
-          if (allDone)
+          if (steps.isNotEmpty && allDone)
             Semantics(
               container: true,
               label: 'Todas as etapas concluídas. Parabéns.',
               child: _buildGuidedStepsCompletionBanner(textTheme),
             )
-          else
+          else if (steps.isNotEmpty && !allDone)
             Semantics(
               button: true,
-              label: buttonLabel,
+              label: completeLabel,
               enabled: true,
               child: SizedBox(
                 width: double.infinity,
@@ -959,7 +1019,12 @@ class _Screen2State extends State<Screen2> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(buttonLabel),
+                  child: Text(
+                    completeLabel,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ),
@@ -1016,14 +1081,15 @@ class _Screen2State extends State<Screen2> {
     );
   }
 
-  Widget _stepRow(
-    TextTheme textTheme,
-    int step,
-    String description,
-    bool isActive,
-    bool completed,
-  ) {
+  Widget _guidedStepRow(
+    TextTheme textTheme, {
+    required int displayNumber,
+    required GuidedStepItem step,
+    required bool isActive,
+  }) {
     final cs = Theme.of(context).colorScheme;
+    final completed = step.completed;
+    final errorColor = cs.error;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
@@ -1065,7 +1131,7 @@ class _Screen2State extends State<Screen2> {
                       style: TextStyle(color: AppColors.white, fontSize: 18),
                     )
                   : Text(
-                      '$step',
+                      '$displayNumber',
                       style: TextStyle(
                         color: isActive ? AppColors.white : cs.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -1078,13 +1144,26 @@ class _Screen2State extends State<Screen2> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Passo $step', style: textTheme.titleMedium),
+                  Text('Passo $displayNumber', style: textTheme.titleMedium),
                   const SizedBox(height: 4),
                   Text(
-                    description,
+                    step.title,
                     style: textTheme.bodyMedium?.copyWith(fontSize: 16),
                   ),
                 ],
+              ),
+            ),
+            Semantics(
+              label: 'Apagar etapa: ${step.title}',
+              button: true,
+              child: IconButton(
+                tooltip: 'Apagar etapa',
+                onPressed: () => _confirmDeleteGuidedStep(step),
+                icon: Icon(Icons.delete_outline, color: errorColor),
+                constraints: const BoxConstraints(
+                  minWidth: 48,
+                  minHeight: 48,
+                ),
               ),
             ),
           ],
