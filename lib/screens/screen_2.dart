@@ -1,18 +1,16 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:senior_ease/app_scope.dart';
 import 'package:senior_ease/app_settings_scope.dart';
 import 'package:senior_ease/models/activity_history_entry.dart';
 import 'package:senior_ease/models/guided_step_item.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/models/user_task_item.dart';
-import 'package:senior_ease/services/google_auth_service.dart';
 import 'package:senior_ease/services/notification_service.dart';
-import 'package:senior_ease/services/user_cloud_data_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
@@ -40,6 +38,9 @@ class _Screen2State extends State<Screen2> {
   StreamSubscription<List<GuidedStepItem>>? _guidedSub;
   StreamSubscription<List<ActivityHistoryEntry>>? _historySub;
 
+  /// Evita múltiplas subscrições quando [didChangeDependencies] corre várias vezes.
+  bool _userStreamsBound = false;
+
   static const int _maxGuidedSteps = 30;
 
   int get _completedTaskCount =>
@@ -64,9 +65,9 @@ class _Screen2State extends State<Screen2> {
   }
 
   Future<void> _recordActivity(String title) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
-    await UserCloudDataService.instance.appendActivityHistory(uid, title);
+    await AppScope.of(context).userData.appendActivityHistory(uid, title);
   }
 
   String _formatHistoryWhen(DateTime d) {
@@ -107,7 +108,7 @@ class _Screen2State extends State<Screen2> {
       return;
     }
     if (!mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
     final next = List<UserTaskItem>.from(_taskItems);
     next[index] = item.copyWith(completed: !item.completed);
@@ -120,7 +121,7 @@ class _Screen2State extends State<Screen2> {
         pending.add(t);
       }
     }
-    await UserCloudDataService.instance.saveTaskLists(
+    await AppScope.of(context).userData.saveTaskLists(
       uid,
       pending: pending,
       completed: completed,
@@ -151,11 +152,11 @@ class _Screen2State extends State<Screen2> {
       return;
     }
     if (!mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
     final next = List<GuidedStepItem>.from(_guidedSteps);
     next[i] = next[i].copyWith(completed: true);
-    await UserCloudDataService.instance.saveGuidedSteps(uid, next);
+    await AppScope.of(context).userData.saveGuidedSteps(uid, next);
     _playCompletionFeedback();
     _showSnack('Passo ${i + 1} concluído!');
     await _recordActivity('Etapa guiada: ${step.title}');
@@ -206,7 +207,7 @@ class _Screen2State extends State<Screen2> {
       _showSnack('Limite de $_maxGuidedSteps etapas guiadas.');
       return;
     }
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
     var maxOrder = -1;
     for (final s in _guidedSteps) {
@@ -218,7 +219,7 @@ class _Screen2State extends State<Screen2> {
       completed: false,
       order: maxOrder + 1,
     );
-    await UserCloudDataService.instance.saveGuidedSteps(
+    await AppScope.of(context).userData.saveGuidedSteps(
       uid,
       [..._guidedSteps, newStep],
     );
@@ -239,20 +240,21 @@ class _Screen2State extends State<Screen2> {
       return;
     }
     if (!mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
     final next = _guidedSteps.where((s) => s.id != step.id).toList();
-    await UserCloudDataService.instance.saveGuidedSteps(uid, next);
+    await AppScope.of(context).userData.saveGuidedSteps(uid, next);
     if (!mounted) return;
     _showSnack('Etapa removida.');
     await _recordActivity('Etapa guiada apagada: ${step.title}');
   }
 
   void _subscribeUserStreams() {
-    final u = FirebaseAuth.instance.currentUser;
-    if (u == null) return;
-    final uid = u.uid;
-    final svc = UserCloudDataService.instance;
+    if (_userStreamsBound) return;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
+    if (uid == null) return;
+    _userStreamsBound = true;
+    final svc = AppScope.of(context).userData;
 
     _remindersSub?.cancel();
     _tasksSub?.cancel();
@@ -297,8 +299,8 @@ class _Screen2State extends State<Screen2> {
   }
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _subscribeUserStreams();
   }
 
@@ -345,9 +347,9 @@ class _Screen2State extends State<Screen2> {
       ),
     );
     if (ok != true || !mounted) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
-    await UserCloudDataService.instance.deleteReminder(uid, r.id);
+    await AppScope.of(context).userData.deleteReminder(uid, r.id);
     await _recordActivity('Lembrete removido: ${r.title}');
     _showSnack('Lembrete removido.');
   }
@@ -486,10 +488,11 @@ class _Screen2State extends State<Screen2> {
       return;
     }
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
-    final notifId =
-        await UserCloudDataService.instance.takeNextNotificationId(uid);
+    final userData = AppScope.of(context).userData;
+    final notifId = await userData.takeNextNotificationId(uid);
+    if (!mounted) return;
     final r = Reminder(
       id: 'r_${DateTime.now().microsecondsSinceEpoch}',
       title: text,
@@ -498,7 +501,7 @@ class _Screen2State extends State<Screen2> {
       iconIndex: iconIdx,
     );
 
-    await UserCloudDataService.instance.upsertReminder(uid, r);
+    await userData.upsertReminder(uid, r);
     await _recordActivity('Lembrete criado: $text');
     if (await NotificationService.instance.isDarwinNotificationsBlocked()) {
       _showSnack(
@@ -662,8 +665,7 @@ class _Screen2State extends State<Screen2> {
                           return;
                         }
                         if (!context.mounted) return;
-                        await GoogleAuthService.instance.signOutGoogle();
-                        await FirebaseAuth.instance.signOut();
+                        await AppScope.of(context).auth.signOut();
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(

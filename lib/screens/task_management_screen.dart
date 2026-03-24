@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/app_scope.dart';
 import 'package:senior_ease/models/user_task_item.dart';
-import 'package:senior_ease/services/user_cloud_data_service.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/large_card.dart';
 
@@ -19,17 +18,23 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   List<UserTaskItem> _pending = [];
   List<UserTaskItem> _completed = [];
 
+  bool _initialLoadStarted = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialLoadStarted) return;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
+    if (uid == null) return;
+    _initialLoadStarted = true;
     _loadTasks();
   }
 
   Future<void> _loadTasks() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (!mounted) return;
     if (uid == null) return;
-    final r = await UserCloudDataService.instance.loadTaskListsOnce(uid);
+    final r = await AppScope.of(context).userData.loadTaskListsOnce(uid);
     if (!mounted) return;
     setState(() {
       _pending = r.pending;
@@ -38,9 +43,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   }
 
   Future<void> _persistTasks() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
-    await UserCloudDataService.instance.saveTaskLists(
+    await AppScope.of(context).userData.saveTaskLists(
       uid,
       pending: _pending,
       completed: _completed,
@@ -48,9 +53,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   }
 
   Future<void> _appendHistory(String title) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AppScope.of(context).auth.currentSession?.uid;
     if (uid == null) return;
-    await UserCloudDataService.instance.appendActivityHistory(uid, title);
+    await AppScope.of(context).userData.appendActivityHistory(uid, title);
   }
 
   int get _totalCount => _pending.length + _completed.length;

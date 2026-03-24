@@ -1,15 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:senior_ease/models/activity_history_entry.dart';
-import 'package:senior_ease/models/guided_step_item.dart';
-import 'package:senior_ease/models/reminder.dart';
-import 'package:senior_ease/models/user_task_item.dart';
+import 'package:senior_ease/data/mappers/guided_step_item_mapper.dart';
+import 'package:senior_ease/data/mappers/user_task_item_mapper.dart';
+import 'package:senior_ease/domain/entities/activity_history_entry.dart';
+import 'package:senior_ease/domain/entities/guided_step_item.dart';
+import 'package:senior_ease/domain/entities/reminder.dart';
+import 'package:senior_ease/domain/entities/user_task_item.dart';
+import 'package:senior_ease/domain/repositories/user_data_repository.dart';
 
-/// Dados da app por utilizador autenticado (`users/{uid}/...`).
-final class UserCloudDataService {
-  UserCloudDataService._();
-  static final UserCloudDataService instance = UserCloudDataService._();
+/// Implementação Firestore de [UserDataRepository].
+final class FirestoreUserDataRepository implements UserDataRepository {
+  FirestoreUserDataRepository({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
 
-  FirebaseFirestore get _db => FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
 
   CollectionReference<Map<String, dynamic>> _remindersCol(String uid) =>
       _db.collection('users').doc(uid).collection('reminders');
@@ -44,7 +47,7 @@ final class UserCloudDataService {
         'iconIndex': r.iconIndex,
       };
 
-  /// IDs únicos para notificações locais (estável por lembrete no servidor).
+  @override
   Future<int> takeNextNotificationId(String uid) async {
     final ref = _metaLocalDoc(uid);
     return _db.runTransaction((tx) async {
@@ -56,6 +59,7 @@ final class UserCloudDataService {
     });
   }
 
+  @override
   Future<List<Reminder>> loadRemindersOnce(String uid) async {
     final snap = await _remindersCol(uid).get();
     final list = snap.docs.map(_reminderFromDoc).toList();
@@ -63,6 +67,7 @@ final class UserCloudDataService {
     return list;
   }
 
+  @override
   Stream<List<Reminder>> remindersStream(String uid) {
     return _remindersCol(uid).snapshots().map((snap) {
       final list = snap.docs.map(_reminderFromDoc).toList();
@@ -71,15 +76,17 @@ final class UserCloudDataService {
     });
   }
 
+  @override
   Future<void> upsertReminder(String uid, Reminder r) async {
     await _remindersCol(uid).doc(r.id).set(_reminderToMap(r));
   }
 
+  @override
   Future<void> deleteReminder(String uid, String reminderId) async {
     await _remindersCol(uid).doc(reminderId).delete();
   }
 
-  /// Substitui a coleção de lembretes (ex.: após purga).
+  @override
   Future<void> replaceAllReminders(String uid, List<Reminder> list) async {
     final col = _remindersCol(uid);
     final batch = _db.batch();
@@ -96,6 +103,12 @@ final class UserCloudDataService {
     await batch.commit();
   }
 
+  static const List<String> _legacyGuidedTitles = [
+    'Pegue o remédio na caixa azul',
+    'Tome com um copo cheio de água',
+    'Anote no caderno que já tomou',
+  ];
+
   List<UserTaskItem> _parseTaskItems(Map<String, dynamic>? data) {
     final raw = data?['items'] as List<dynamic>?;
     if (raw == null || raw.isEmpty) return [];
@@ -104,32 +117,38 @@ final class UserCloudDataService {
       if (e is! Map) continue;
       try {
         out.add(
-          UserTaskItem.fromFirestore(Map<String, dynamic>.from(e)),
+          UserTaskItemMapper.fromFirestore(Map<String, dynamic>.from(e)),
         );
       } catch (_) {}
     }
     return out;
   }
 
-  /// Ordem: pendentes primeiro, depois concluídas (como na gestão de tarefas).
+  @override
   Future<void> saveTaskLists(
     String uid, {
     required List<UserTaskItem> pending,
     required List<UserTaskItem> completed,
   }) async {
     final items = <Map<String, dynamic>>[
-      ...pending.map((e) => e.copyWith(completed: false).toFirestore()),
-      ...completed.map((e) => e.copyWith(completed: true).toFirestore()),
+      ...pending.map(
+        (e) => UserTaskItemMapper.toFirestore(e.copyWith(completed: false)),
+      ),
+      ...completed.map(
+        (e) => UserTaskItemMapper.toFirestore(e.copyWith(completed: true)),
+      ),
     ];
     await _tasksDoc(uid).set({'items': items}, SetOptions(merge: true));
   }
 
+  @override
   Stream<List<UserTaskItem>> taskItemsStream(String uid) {
     return _tasksDoc(uid).snapshots().map((snap) {
       return _parseTaskItems(snap.data());
     });
   }
 
+  @override
   Future<({List<UserTaskItem> pending, List<UserTaskItem> completed})>
       loadTaskListsOnce(String uid) async {
     final snap = await _tasksDoc(uid).get();
@@ -146,12 +165,6 @@ final class UserCloudDataService {
     return (pending: pending, completed: completed);
   }
 
-  static const List<String> _legacyGuidedTitles = [
-    'Pegue o remédio na caixa azul',
-    'Tome com um copo cheio de água',
-    'Anote no caderno que já tomou',
-  ];
-
   List<GuidedStepItem> _parseGuidedSteps(Map<String, dynamic>? data) {
     final raw = data?['steps'] as List<dynamic>?;
     if (raw != null && raw.isNotEmpty) {
@@ -160,7 +173,9 @@ final class UserCloudDataService {
         if (e is! Map) continue;
         try {
           list.add(
-            GuidedStepItem.fromFirestore(Map<String, dynamic>.from(e)),
+            GuidedStepItemMapper.fromFirestore(
+              Map<String, dynamic>.from(e),
+            ),
           );
         } catch (_) {}
       }
@@ -187,18 +202,21 @@ final class UserCloudDataService {
     return [];
   }
 
+  @override
   Stream<List<GuidedStepItem>> guidedStepsStream(String uid) {
     return _guidedDoc(uid).snapshots().map((snap) {
       return _parseGuidedSteps(snap.data());
     });
   }
 
+  @override
   Future<void> saveGuidedSteps(String uid, List<GuidedStepItem> steps) async {
     await _guidedDoc(uid).set({
-      'steps': steps.map((e) => e.toFirestore()).toList(),
+      'steps': steps.map(GuidedStepItemMapper.toFirestore).toList(),
     });
   }
 
+  @override
   Stream<List<ActivityHistoryEntry>> activityHistoryStream(String uid) {
     return _historyCol(uid)
         .orderBy('recordedAt', descending: true)
@@ -216,6 +234,7 @@ final class UserCloudDataService {
     });
   }
 
+  @override
   Future<void> appendActivityHistory(String uid, String title) async {
     await _historyCol(uid).add({
       'title': title,

@@ -1,17 +1,17 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:senior_ease/domain/repositories/auth_repository.dart';
 
-/// Notifica o [GoRouter] quando a sessão Firebase muda (login / logout).
+/// Notifica o [GoRouter] quando a sessão muda (login / logout).
 final class AuthRefreshNotifier extends ChangeNotifier {
-  AuthRefreshNotifier() {
-    _subscription = FirebaseAuth.instance.authStateChanges().listen((_) {
+  AuthRefreshNotifier(AuthRepository auth) {
+    _subscription = auth.sessionChanges.listen((_) {
       notifyListeners();
     });
   }
 
-  late final StreamSubscription<User?> _subscription;
+  late final StreamSubscription<dynamic> _subscription;
 
   @override
   void dispose() {

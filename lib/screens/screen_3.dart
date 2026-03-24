@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
+import 'package:senior_ease/app_scope.dart';
 import 'package:senior_ease/app_settings_scope.dart';
-import 'package:senior_ease/services/google_auth_service.dart';
+import 'package:senior_ease/domain/entities/auth_session.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/confirm_before_action.dart';
 import 'package:senior_ease/widgets/large_card.dart';
@@ -151,8 +151,7 @@ class _Screen3State extends State<Screen3> {
                       return;
                     }
                     if (!context.mounted) return;
-                    await GoogleAuthService.instance.signOutGoogle();
-                    await FirebaseAuth.instance.signOut();
+                    await AppScope.of(context).auth.signOut();
                   },
                   textTheme: textTheme,
                 ),
@@ -203,13 +202,13 @@ class _Screen3State extends State<Screen3> {
   }
 
   Widget _buildProfileCard(TextTheme textTheme) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<AuthSession?>(
+      stream: AppScope.of(context).auth.sessionChanges,
       builder: (context, snapshot) {
-        final user = snapshot.data ?? FirebaseAuth.instance.currentUser;
-        final email = user?.email ?? '—';
-        final title = user?.displayName?.trim().isNotEmpty == true
-            ? user!.displayName!.trim()
+        final session = snapshot.data ?? AppScope.of(context).auth.currentSession;
+        final email = session?.email ?? '—';
+        final title = session?.displayName?.trim().isNotEmpty == true
+            ? session!.displayName!.trim()
             : 'Conta Senior Ease';
         return LargeCard(
           padding: const EdgeInsets.all(24),

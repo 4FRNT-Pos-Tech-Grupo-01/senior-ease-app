@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
-import 'package:senior_ease/services/auth_error_messages.dart';
-import 'package:senior_ease/services/google_auth_service.dart';
+import 'package:senior_ease/app_scope.dart';
+import 'package:senior_ease/domain/entities/auth_exception.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/google_sign_in_button.dart';
 
@@ -40,8 +39,9 @@ class _Screen1State extends State<Screen1> {
   Future<void> _signIn() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _submitting = true);
+    final auth = AppScope.of(context).auth;
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -49,8 +49,8 @@ class _Screen1State extends State<Screen1> {
       if (_rememberMe) {
         _showSnack('Sessão mantida neste dispositivo.');
       }
-    } on FirebaseAuthException catch (e) {
-      _showSnack(messageForFirebaseAuthException(e));
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (_) {
       _showSnack('Não foi possível iniciar sessão. Tente novamente.');
     } finally {
@@ -61,14 +61,15 @@ class _Screen1State extends State<Screen1> {
   Future<void> _signInWithGoogle() async {
     if (_submitting || _googleLoading) return;
     setState(() => _googleLoading = true);
+    final auth = AppScope.of(context).auth;
     try {
-      final cred = await GoogleAuthService.instance.signInWithGoogle();
+      final ok = await auth.signInWithGoogle();
       if (!mounted) return;
-      if (cred != null && _rememberMe) {
+      if (ok && _rememberMe) {
         _showSnack('Sessão iniciada com Google.');
       }
-    } on FirebaseAuthException catch (e) {
-      _showSnack(messageForFirebaseAuthException(e));
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (_) {
       _showSnack('Não foi possível iniciar sessão com Google.');
     } finally {
@@ -83,12 +84,13 @@ class _Screen1State extends State<Screen1> {
       return;
     }
     setState(() => _submitting = true);
+    final auth = AppScope.of(context).auth;
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      await auth.sendPasswordResetEmail(email);
       if (!mounted) return;
       _showSnack('Enviámos instruções para o seu email.');
-    } on FirebaseAuthException catch (e) {
-      _showSnack(messageForFirebaseAuthException(e));
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (_) {
       _showSnack('Não foi possível enviar o email. Tente novamente.');
     } finally {

@@ -1,13 +1,20 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:senior_ease/domain/repositories/auth_repository.dart';
+import 'package:senior_ease/domain/repositories/user_data_repository.dart';
 import 'package:senior_ease/models/reminder.dart';
 import 'package:senior_ease/services/notification_service.dart';
-import 'package:senior_ease/services/user_cloud_data_service.dart';
 
 /// Preferências persistidas (acessibilidade, navegação, notificações).
 final class AppSettingsController extends ChangeNotifier {
-  AppSettingsController();
+  AppSettingsController({
+    required UserDataRepository userData,
+    required AuthRepository auth,
+  })  : _userData = userData,
+        _auth = auth;
+
+  final UserDataRepository _userData;
+  final AuthRepository _auth;
 
   static const _kFontSize = 'app_font_size';
   static const _kContrast = 'app_contrast';
@@ -89,9 +96,9 @@ final class AppSettingsController extends ChangeNotifier {
   }
 
   Future<void> _resyncNotificationsFromStorage() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _auth.currentSession?.uid;
     if (uid == null) return;
-    var list = await UserCloudDataService.instance.loadRemindersOnce(uid);
+    var list = await _userData.loadRemindersOnce(uid);
     list.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     await NotificationService.instance.syncReminders(
       list,
@@ -100,7 +107,7 @@ final class AppSettingsController extends ChangeNotifier {
     );
   }
 
-  /// Sincroniza notificações com as flags guardadas (ex.: [ReminderPurge] sem instância).
+  /// Sincroniza notificações com as flags guardadas (ex.: após [ReminderPurgeRunner]).
   static Future<void> syncRemindersWithPersistedFlags(
     List<Reminder> reminders,
   ) async {

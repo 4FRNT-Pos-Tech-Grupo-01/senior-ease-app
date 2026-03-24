@@ -1,9 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:senior_ease/app_router.dart';
-import 'package:senior_ease/services/auth_error_messages.dart';
-import 'package:senior_ease/services/google_auth_service.dart';
+import 'package:senior_ease/app_scope.dart';
+import 'package:senior_ease/domain/entities/auth_exception.dart';
 import 'package:senior_ease/theme/app_theme.dart';
 import 'package:senior_ease/widgets/google_sign_in_button.dart';
 
@@ -42,15 +41,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _submitting = true);
+    final auth = AppScope.of(context).auth;
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
       if (!mounted) return;
       context.go(AppRouter.screen2);
-    } on FirebaseAuthException catch (e) {
-      _showSnack(messageForFirebaseAuthException(e));
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (_) {
       _showSnack('Não foi possível criar a conta. Tente novamente.');
     } finally {
@@ -61,11 +61,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _signInWithGoogle() async {
     if (_submitting || _googleLoading) return;
     setState(() => _googleLoading = true);
+    final auth = AppScope.of(context).auth;
     try {
-      await GoogleAuthService.instance.signInWithGoogle();
+      await auth.signInWithGoogle();
       if (!mounted) return;
-    } on FirebaseAuthException catch (e) {
-      _showSnack(messageForFirebaseAuthException(e));
+    } on AuthException catch (e) {
+      _showSnack(e.message);
     } catch (_) {
       _showSnack('Não foi possível iniciar sessão com Google.');
     } finally {
